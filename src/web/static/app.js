@@ -1,7 +1,9 @@
-let prompts = [];
-let currentRound = 0;
-let choices = []; // "warm" or "honest"
-let currentWarmIs = null;
+// State
+let messages = []; // {role, content} for API
+let pushbackLevel = 5;
+let turnNumber = 0;
+let turnData = []; // {pushback, signal}
+let chatActive = false;
 
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
@@ -27,24 +29,18 @@ function drawHistogram(canvasId, scores, highlightScore) {
   const bins = new Array(11).fill(0);
   scores.forEach(s => bins[Math.min(10, Math.max(0, Math.round(s)))]++);
   const maxCount = Math.max(...bins, 1);
-
-  const gap = 4;
-  const barW = (w - gap * 12) / 11;
-  const bottom = h - 18;
-  const chartH = bottom - 4;
+  const gap = 4, barW = (w - gap * 12) / 11, bottom = h - 18, chartH = bottom - 4;
 
   ctx.clearRect(0, 0, w, h);
   bins.forEach((count, i) => {
     const x = gap + i * (barW + gap);
     const barH = (count / maxCount) * chartH;
     const isHl = highlightScore !== undefined && Math.round(highlightScore) === i;
-
     ctx.shadowBlur = 0;
     ctx.fillStyle = isHl ? '#6c5ce7' : (count > 0 ? '#374151' : '#1f2937');
     if (isHl) { ctx.shadowColor = 'rgba(108,92,231,0.5)'; ctx.shadowBlur = 8; }
     ctx.fillRect(x, bottom - Math.max(barH, 2), barW, Math.max(barH, 2));
     ctx.shadowBlur = 0;
-
     ctx.fillStyle = isHl ? '#e5e7eb' : '#6b7280';
     ctx.font = '10px system-ui, sans-serif';
     ctx.textAlign = 'center';
@@ -66,108 +62,161 @@ async function loadScores() {
       drawHistogram('landing-canvas', scores);
     }
   } catch {
-    const emptyEl = document.getElementById('landing-empty');
-    if (emptyEl) { emptyEl.style.display = 'flex'; }
+    const el = document.getElementById('landing-empty');
+    if (el) el.style.display = 'flex';
   }
 }
 
-async function startQuiz() {
-  try {
-    const res = await fetch('/api/prompts');
-    const data = await res.json();
-    prompts = data.prompts;
-  } catch {
-    prompts = [
-      "What's a food opinion you'll defend?",
-      "What's a life decision others questioned?",
-      "What are you working on that matters to you?",
-      "What belief do you hold that others disagree with?",
-      "What about yourself are you trying to change?",
-    ];
-  }
-  currentRound = 0;
-  choices = [];
-  showScreen('quiz');
-  showInputPhase();
+// Chat
+function startChat() {
+  messages = [];
+  pushbackLevel = 5;
+  turnNumber = 0;
+  turnData = [];
+  chatActive = true;
+  document.getElementById('chat-messages').innerHTML = '';
+  showScreen('chat');
+
+  const input = document.getElementById('chat-input');
+  input.value = '';
+  input.disabled = true;
+  document.getElementById('send-btn').disabled = true;
+
+  // First turn: AI starts the conversation
+  sendToAI();
 }
 
-// Quiz flow
-function showInputPhase() {
-  document.getElementById('input-phase').classList.remove('hidden');
-  document.getElementById('choice-phase').classList.add('hidden');
-  document.getElementById('loading-spinner').classList.add('hidden');
+function addMessage(role, text) {
+  const container = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = role === 'assistant'
+    ? 'mb-3 mr-12'
+    : 'mb-3 ml-12';
 
-  document.getElementById('round-label').textContent = `Round ${currentRound + 1} of 5`;
-  document.getElementById('progress-fill').style.width = `${(currentRound / 5) * 100}%`;
-  document.getElementById('round-prompt').textContent = prompts[currentRound];
-
-  const textarea = document.getElementById('user-input');
-  textarea.value = '';
-  textarea.focus();
-
-  const btn = document.getElementById('submit-input-btn');
-  btn.disabled = true;
-  textarea.oninput = () => { btn.disabled = textarea.value.trim().length === 0; };
+  const bubble = document.createElement('div');
+  bubble.style.cssText = role === 'assistant'
+    ? 'padding:0.75rem 1rem; background:#1f2937; border-radius:0.75rem 0.75rem 0.75rem 0.25rem; font-size:0.875rem; line-height:1.5; color:#e5e7eb;'
+    : 'padding:0.75rem 1rem; background:#6c5ce7; border-radius:0.75rem 0.75rem 0.25rem 0.75rem; font-size:0.875rem; line-height:1.5; color:white;';
+  bubble.textContent = text;
+  div.appendChild(bubble);
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return div;
 }
 
-async function submitInput() {
-  const textarea = document.getElementById('user-input');
-  const opinion = textarea.value.trim();
-  if (!opinion) return;
+function showTyping() {
+  const container = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.id = 'typing-indicator';
+  div.className = 'mb-3 mr-12';
+  div.innerHTML = '<div style="padding:0.75rem 1rem; background:#1f2937; border-radius:0.75rem 0.75rem 0.75rem 0.25rem; display:inline-flex; gap:4px"><span class="typing-dot" style="width:6px;height:6px;background:#6b7280;border-radius:50%;display:block"></span><span class="typing-dot" style="width:6px;height:6px;background:#6b7280;border-radius:50%;display:block"></span><span class="typing-dot" style="width:6px;height:6px;background:#6b7280;border-radius:50%;display:block"></span></div>';
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
 
-  document.getElementById('input-phase').classList.add('hidden');
-  document.getElementById('loading-spinner').classList.remove('hidden');
+function hideTyping() {
+  const el = document.getElementById('typing-indicator');
+  if (el) el.remove();
+}
+
+async function sendMessage() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text || !chatActive) return;
+
+  input.value = '';
+  input.disabled = true;
+  document.getElementById('send-btn').disabled = true;
+
+  addMessage('user', text);
+  messages.push({ role: 'user', content: text });
+
+  await sendToAI();
+}
+
+async function sendToAI() {
+  turnNumber++;
+  showTyping();
 
   try {
-    const res = await fetch('/api/generate-pair', {
+    const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ opinion, round: currentRound }),
+      body: JSON.stringify({
+        messages,
+        pushback_level: pushbackLevel,
+        turn_number: turnNumber,
+      }),
     });
     const data = await res.json();
+    hideTyping();
 
     if (data.error) {
-      document.getElementById('loading-spinner').classList.add('hidden');
-      document.getElementById('input-phase').classList.remove('hidden');
-      alert('Error: ' + data.error);
+      addMessage('assistant', 'Something went wrong. Try refreshing.');
       return;
     }
 
-    currentWarmIs = data.warm_is;
-    document.getElementById('option-a').textContent = data.a;
-    document.getElementById('option-b').textContent = data.b;
+    // Record turn data
+    turnData.push({
+      pushback: pushbackLevel,
+      signal: data.user_signal,
+    });
 
-    document.getElementById('loading-spinner').classList.add('hidden');
-    document.getElementById('choice-phase').classList.remove('hidden');
+    // Update pushback for next turn
+    pushbackLevel = data.next_pushback;
+
+    // Show AI message
+    addMessage('assistant', data.message);
+    messages.push({ role: 'assistant', content: data.message });
+
+    if (data.is_final) {
+      chatActive = false;
+      document.getElementById('chat-input').disabled = true;
+      document.getElementById('send-btn').disabled = true;
+
+      // Show "see results" button after a pause
+      setTimeout(() => {
+        const container = document.getElementById('chat-messages');
+        const div = document.createElement('div');
+        div.className = 'mt-4 mb-20';
+        div.innerHTML = '<button onclick="showResults()" class="w-full py-3 bg-brand hover:bg-brand-light text-white font-semibold rounded-xl">See your score</button>';
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+      }, 1500);
+    } else {
+      // Enable input
+      const input = document.getElementById('chat-input');
+      input.disabled = false;
+      document.getElementById('send-btn').disabled = false;
+      input.focus();
+    }
   } catch {
-    document.getElementById('loading-spinner').classList.add('hidden');
-    document.getElementById('input-phase').classList.remove('hidden');
-    alert('Something went wrong. Try again.');
+    hideTyping();
+    addMessage('assistant', 'Connection error. Try again.');
+    document.getElementById('chat-input').disabled = false;
+    document.getElementById('send-btn').disabled = false;
   }
 }
 
-function pickChoice(letter) {
-  const pickedWarm = (letter === currentWarmIs);
-  choices.push(pickedWarm ? 'warm' : 'honest');
-
-  currentRound++;
-  if (currentRound < 5) {
-    showInputPhase();
-  } else {
-    submitScore();
+// Enable send button when input has text
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('chat-input');
+  if (input) {
+    input.addEventListener('input', () => {
+      document.getElementById('send-btn').disabled = !input.value.trim() || !chatActive;
+    });
   }
-}
+});
 
 // Results
-async function submitScore() {
+async function showResults() {
   showScreen('results');
-  document.getElementById('progress-fill').style.width = '100%';
 
   try {
     const res = await fetch('/api/submit-score', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ choices }),
+      body: JSON.stringify({ turn_data: turnData }),
     });
     const data = await res.json();
 
@@ -190,16 +239,19 @@ function animateNumber(el, target) {
 }
 
 function getScoreDescription(s) {
-  if (s >= 9) return 'You consistently chose comfort, even when the stakes were high.';
-  if (s >= 7) return 'You lean toward validation. The honest responses felt harder to pick as things got personal.';
-  if (s >= 5) return 'You are right in the middle. You picked comfort on some rounds and truth on others.';
-  if (s >= 3) return 'You lean toward honesty. You chose the harder response even when it was personal.';
-  return 'You consistently chose truth over comfort, even at the highest stakes.';
+  if (s >= 8) return 'The conversation naturally moved toward directness and honesty. You pulled for truth.';
+  if (s >= 6) return 'You leaned toward honest engagement. You were comfortable with pushback.';
+  if (s >= 4) return 'You landed in the middle. The conversation stayed balanced between comfort and challenge.';
+  if (s >= 2) return 'You leaned toward comfort. The conversation naturally softened as it went on.';
+  return 'The conversation moved toward warmth and validation. You pulled for comfort.';
 }
 
-function resetQuiz() {
-  currentRound = 0;
-  choices = [];
+function resetAll() {
+  messages = [];
+  pushbackLevel = 5;
+  turnNumber = 0;
+  turnData = [];
+  chatActive = false;
   showScreen('landing');
   loadScores();
 }

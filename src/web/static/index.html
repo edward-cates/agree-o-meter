@@ -14,6 +14,10 @@
     html, body { overflow-x: hidden; max-width: 100vw; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .spinner { animation: spin 0.8s linear infinite; }
+    .typing-dot { animation: typing 1.4s infinite; }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes typing { 0%,60%,100% { opacity: 0.3; } 30% { opacity: 1; } }
   </style>
 </head>
 <body style="overflow-x:hidden; max-width:100vw; margin:0" class="bg-gray-950 text-gray-100 min-h-dvh">
@@ -25,15 +29,15 @@
         Agree-O-Meter
       </h1>
       <p class="text-center text-gray-400 text-sm mb-6">
-        At what point do you choose comfort over truth?
+        A 5-minute conversation that reveals something about you.
       </p>
 
       <div class="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-6">
         <h2 class="text-sm font-bold text-teal-400 mb-3">How it works</h2>
         <div class="space-y-2 text-xs text-gray-400">
-          <p>5 rounds of escalating personal questions. You share something real, then pick between two responses: one that validates you and one that challenges you.</p>
-          <p>The stakes go up each round. Early questions are easy. Later ones ask you to be vulnerable. <strong class="text-gray-300">The more honestly you answer, the more accurate your score.</strong></p>
-          <p>At the end, you get a score showing where you fall on the comfort-vs-truth spectrum.</p>
+          <p>You'll have a short conversation with an AI. Talk about whatever's on your mind — something you're thinking about, working through, or care about.</p>
+          <p>The AI adapts to you in real time. At the end, you'll get a score showing where you fall on the comfort-vs-truth spectrum.</p>
+          <p><strong class="text-gray-300">The more honestly you engage, the more accurate your result.</strong></p>
         </div>
       </div>
 
@@ -43,9 +47,8 @@
           <h2 class="text-sm font-bold text-teal-400">Totally anonymous</h2>
         </div>
         <div class="space-y-2 text-xs text-gray-400">
-          <p>&#10003; Your answers are sent to AI to generate responses — <strong class="text-gray-300">we store nothing you type</strong>.</p>
-          <p>&#10003; The <strong class="text-gray-300">only</strong> thing saved is your score (0-10). No text, no cookies, no accounts.</p>
-          <p>&#10003; <strong class="text-gray-300">No way to link your score or answers back to you.</strong></p>
+          <p>&#10003; <strong class="text-gray-300">Nothing you type is stored.</strong> The conversation exists only while it's happening.</p>
+          <p>&#10003; The only thing saved is your score (0-10). No text, no cookies, no accounts.</p>
         </div>
       </div>
 
@@ -56,51 +59,34 @@
           <p id="landing-empty" class="absolute inset-0 flex items-center justify-center text-gray-500 text-sm" style="display:none">No scores yet</p>
         </div>
         <div class="flex justify-between text-[10px] text-gray-600 mt-1 px-1">
-          <span>prefers truth</span>
           <span>prefers comfort</span>
+          <span>prefers truth</span>
         </div>
       </div>
 
-      <button onclick="startQuiz()" class="w-full py-3 bg-brand hover:bg-brand-light text-white font-semibold rounded-xl">
-        Take the Quiz
+      <button onclick="startChat()" class="w-full py-3 bg-brand hover:bg-brand-light text-white font-semibold rounded-xl">
+        Start Conversation
       </button>
     </div>
   </div>
 
-  <!-- QUIZ ROUND -->
-  <div id="quiz" class="screen hidden" style="max-width:100vw; overflow:hidden">
-    <div class="px-4 py-8 mx-auto" style="max-width:32rem; width:100%">
-      <div class="h-1 bg-gray-800 rounded-full mb-5 overflow-hidden">
-        <div id="progress-fill" class="h-full bg-gradient-to-r from-purple-500 to-teal-400 rounded-full transition-all duration-500" style="width:0%"></div>
-      </div>
-      <p id="round-label" class="text-xs text-gray-500 text-center mb-4">Round 1 of 5</p>
-
-      <!-- Input phase -->
-      <div id="input-phase">
-        <p id="round-prompt" class="text-sm font-medium text-gray-200 mb-3"></p>
-        <textarea id="user-input" rows="3" placeholder="Type your answer..."
-          style="width:100%; min-width:0; font-size:16px; padding:0.75rem; background:#111827; border:1px solid #1f2937; border-radius:0.5rem; color:#f3f4f6; outline:none; resize:none; font-family:inherit"></textarea>
-        <button id="submit-input-btn" onclick="submitInput()" disabled
-          class="w-full mt-3 py-3 bg-brand text-white font-semibold rounded-xl disabled:opacity-30">
-          Next
-        </button>
+  <!-- CHAT -->
+  <div id="chat" class="screen hidden" style="max-width:100vw; overflow:hidden">
+    <div class="flex flex-col min-h-dvh">
+      <!-- Messages -->
+      <div id="chat-messages" class="flex-1 overflow-y-auto px-4 pt-4 pb-32 mx-auto" style="max-width:32rem; width:100%">
       </div>
 
-      <!-- Choice phase -->
-      <div id="choice-phase" class="hidden">
-        <p class="text-xs text-gray-500 text-center mb-4">Which response do you prefer?</p>
-        <div class="space-y-3">
-          <button id="option-a" onclick="pickChoice('a')"
-            style="display:block; width:100%; text-align:left; padding:1rem; background:#111827; border:1px solid #1f2937; border-radius:0.75rem; color:#e5e7eb; font-size:0.875rem; line-height:1.5; cursor:pointer; word-break:break-word; font-family:inherit"></button>
-          <button id="option-b" onclick="pickChoice('b')"
-            style="display:block; width:100%; text-align:left; padding:1rem; background:#111827; border:1px solid #1f2937; border-radius:0.75rem; color:#e5e7eb; font-size:0.875rem; line-height:1.5; cursor:pointer; word-break:break-word; font-family:inherit"></button>
+      <!-- Input -->
+      <div class="fixed bottom-0 left-0 right-0 bg-gray-950 border-t border-gray-800 p-3">
+        <div class="mx-auto flex gap-2" style="max-width:32rem">
+          <input id="chat-input" type="text" placeholder="Type a message..."
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage()}"
+            style="flex:1; min-width:0; font-size:16px; padding:0.75rem; background:#111827; border:1px solid #1f2937; border-radius:0.75rem; color:#f3f4f6; outline:none; font-family:inherit" />
+          <button id="send-btn" onclick="sendMessage()"
+            class="px-4 py-2 bg-brand text-white font-semibold rounded-xl disabled:opacity-30"
+            disabled>Send</button>
         </div>
-      </div>
-
-      <!-- Loading -->
-      <div id="loading-spinner" class="hidden py-8 text-center">
-        <div class="w-8 h-8 border-2 border-gray-700 border-t-brand rounded-full spinner mx-auto mb-3"></div>
-        <p class="text-gray-500 text-sm">Thinking...</p>
       </div>
     </div>
   </div>
@@ -121,8 +107,8 @@
           <canvas id="results-canvas" style="display:block; width:100%; height:100%"></canvas>
         </div>
         <div class="flex justify-between text-[10px] text-gray-600 mt-1 px-1">
-          <span>prefers truth</span>
           <span>prefers comfort</span>
+          <span>prefers truth</span>
         </div>
       </div>
 
@@ -131,12 +117,12 @@
         <pre id="scoring-method" class="mt-3 whitespace-pre-wrap font-sans leading-relaxed"></pre>
       </details>
 
-      <button onclick="resetQuiz()" class="w-full py-3 bg-brand hover:bg-brand-light text-white font-semibold rounded-xl">
-        Take it again
+      <button onclick="resetAll()" class="w-full py-3 bg-brand hover:bg-brand-light text-white font-semibold rounded-xl">
+        Try again
       </button>
     </div>
   </div>
 
-  <script src="/static/app.js?v=4"></script>
+  <script src="/static/app.js?v=5"></script>
 </body>
 </html>
