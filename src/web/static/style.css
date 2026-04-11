@@ -20,8 +20,12 @@ body {
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
+  min-height: 100dvh;
   line-height: 1.6;
+  -webkit-text-size-adjust: 100%;
 }
+
+input, button { font-family: inherit; }
 
 .container {
   max-width: 640px;
@@ -361,8 +365,29 @@ blockquote {
 }
 
 /* Responsive */
-@media (max-width: 480px) {
-  .container { padding: 1.5rem 1rem; }
-  h1 { font-size: 2rem; }
-  #score-number { font-size: 4rem; }
+@media (max-width: 640px) {
+  .container { padding: 1.25rem 1rem; }
+  h1 { font-size: 1.75rem; }
+  .subtitle { font-size: 0.95rem; margin-bottom: 1.5rem; }
+  .privacy-card { padding: 1.25rem; }
+  .privacy-card h2 { font-size: 1rem; }
+  .privacy-card li { font-size: 0.85rem; }
+  h2 { font-size: 1.25rem; }
+  .hint { font-size: 0.85rem; margin-bottom: 1rem; }
+  .opinion-row input { padding: 0.65rem 0.75rem; font-size: 0.9rem; }
+  blockquote { padding: 0.85rem 1rem; font-size: 0.95rem; }
+  .option-btn { padding: 0.85rem 1rem; font-size: 0.88rem; }
+  .option-btn .option-label { font-size: 0.7rem; }
+  .btn-primary { padding: 0.85rem; font-size: 1rem; }
+  #score-number { font-size: 3.5rem; }
+  .score-max { font-size: 1.25rem; }
+  .score-desc { font-size: 0.9rem; }
+  .chart-container { height: 140px; padding: 0.75rem; }
+}
+
+@media (max-width: 380px) {
+  .container { padding: 1rem 0.75rem; }
+  h1 { font-size: 1.5rem; }
+  .privacy-card { padding: 1rem; }
+  .option-btn { padding: 0.75rem; }
 }
