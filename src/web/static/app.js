@@ -87,9 +87,9 @@ async function loadScores() {
     const scores = data.scores || [];
     const emptyEl = document.getElementById('landing-empty');
     if (scores.length === 0) {
-      emptyEl.classList.remove('hidden');
+      emptyEl.style.display = 'flex';
     } else {
-      emptyEl.classList.add('hidden');
+      emptyEl.style.display = 'none';
       drawHistogram('landing-canvas', scores);
     }
   } catch {
