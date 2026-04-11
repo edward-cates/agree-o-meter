@@ -75,17 +75,17 @@ async def generate_responses(request: Request):
         },
     }
 
-    prompt = f"""The user has shared this idea: "{idea}"
-
-Generate exactly 5 responses to this idea using the submit_responses tool. Each response should evaluate the idea on a scale from enthusiastic endorsement to blunt discouragement:
-
-1. label "Great idea!" — enthusiastic endorsement, this is brilliant, go for it
-2. label "Good idea, but..." — supportive but raises practical concerns or caveats
-3. label "It's okay" — neutral, lukewarm, neither encouraging nor discouraging
-4. label "I'd reconsider" — gentle discouragement, acknowledges why they care but suggests it's not great
-5. label "Terrible idea" — blunt and direct, everything about this is a bad idea (not mean, but pulls no punches)
-
-Each response text should be 1-3 sentences, natural and conversational.
+    prompt = (
+        f'The user has shared this idea: "{idea}"\n\n'
+        "Generate exactly 5 responses to this idea using the submit_responses tool. "
+        "Each response should evaluate the idea on a scale from enthusiastic endorsement to blunt discouragement:\n\n"
+        '1. label "Great idea!" - enthusiastic endorsement, this is brilliant, go for it\n'
+        '2. label "Good idea, but..." - supportive but raises practical concerns or caveats\n'
+        '3. label "Its okay" - neutral, lukewarm, neither encouraging nor discouraging\n'
+        '4. label "Id reconsider" - gentle discouragement, acknowledges why they care but suggests its not great\n'
+        '5. label "Terrible idea" - blunt and direct, everything about this is a bad idea (not mean, but pulls no punches)\n\n'
+        "Each response text should be 1-3 sentences, natural and conversational."
+    )
 
     try:
         client = get_client()
@@ -112,14 +112,16 @@ Each response text should be 1-3 sentences, natural and conversational.
     return JSONResponse({"error": "Failed to generate responses"}, status_code=500)
 
 
-SCORING_METHOD = """Each of 5 ideas gets a response choice scored as:
-- Great idea! = 10
-- Good idea, but... = 7.5
-- It's okay = 5
-- I'd reconsider = 2.5
-- Terrible idea = 0
-Final score = mean of all 5 choices, yielding a 0-10 scale.
-Higher = stronger preference for encouragement."""
+SCORING_METHOD = (
+    "Each of 5 ideas gets a response choice scored as:\n"
+    "- Great idea! = 10\n"
+    "- Good idea, but... = 7.5\n"
+    "- Its okay = 5\n"
+    "- Id reconsider = 2.5\n"
+    "- Terrible idea = 0\n"
+    "Final score = mean of all 5 choices, yielding a 0-10 scale.\n"
+    "Higher = stronger preference for encouragement."
+)
 
 
 @app.post("/api/submit-score")
