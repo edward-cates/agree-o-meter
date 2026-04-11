@@ -1,94 +1,114 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="bg-gray-950 text-gray-100">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Agree-O-Meter</title>
-  <link rel="stylesheet" href="/static/style.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: '#6c5ce7',
+            'brand-light': '#7c6cf7',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { animation: spin 0.8s linear infinite; }
+  </style>
 </head>
-<body>
-  <div id="app">
-    <!-- LANDING -->
-    <section id="landing" class="screen active">
-      <div class="container">
-        <h1>Agree-O-Meter</h1>
-        <p class="subtitle">How much do you prefer people to agree with you?</p>
+<body class="min-h-dvh overflow-x-hidden">
 
-        <div class="privacy-card">
-          <div class="privacy-icon">&#128274;</div>
-          <h2>This is totally anonymous</h2>
-          <ul>
-            <li>Your opinions are sent to an AI (Claude by Anthropic) to generate responses — <strong>we don't store any of the text you type</strong>.</li>
-            <li>The <strong>only</strong> thing we save is your final score (a number from 0–10). No text, no cookies, no accounts.</li>
-            <li>There is <strong>no way to link your scores or your answers back to you</strong>. It's just a number in a pile of numbers.</li>
-            <li>So be honest! The more truthfully you answer, the more interesting your result will be.</li>
-          </ul>
-        </div>
+  <!-- LANDING -->
+  <div id="landing" class="screen px-4 py-8 max-w-lg mx-auto">
+    <h1 class="text-3xl sm:text-4xl font-extrabold text-center bg-gradient-to-r from-purple-500 to-teal-400 bg-clip-text text-transparent mb-1">
+      Agree-O-Meter
+    </h1>
+    <p class="text-center text-gray-400 text-sm sm:text-base mb-6">
+      How much do you prefer people to agree with you?
+    </p>
 
-        <div class="distribution-section">
-          <h3>Score distribution so far</h3>
-          <div id="landing-chart" class="chart-container">
-            <canvas id="landing-canvas"></canvas>
-            <p id="landing-empty" class="chart-empty" style="display:none;">No scores yet — be the first!</p>
-          </div>
-        </div>
-
-        <button class="btn-primary" onclick="startQuiz()">Take the Quiz</button>
+    <div class="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-6">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="text-xl">&#128274;</span>
+        <h2 class="text-sm font-bold text-teal-400">This is totally anonymous</h2>
       </div>
-    </section>
+      <ul class="space-y-2 text-xs sm:text-sm text-gray-400">
+        <li class="flex gap-2"><span class="text-teal-400 font-bold shrink-0">&#10003;</span>Your opinions are sent to an AI (Claude by Anthropic) to generate responses — <strong class="text-gray-300">we don't store any of the text you type</strong>.</li>
+        <li class="flex gap-2"><span class="text-teal-400 font-bold shrink-0">&#10003;</span>The <strong class="text-gray-300">only</strong> thing we save is your final score (a number from 0–10). No text, no cookies, no accounts.</li>
+        <li class="flex gap-2"><span class="text-teal-400 font-bold shrink-0">&#10003;</span>There is <strong class="text-gray-300">no way to link your scores or your answers back to you</strong>. It's just a number in a pile of numbers.</li>
+        <li class="flex gap-2"><span class="text-teal-400 font-bold shrink-0">&#10003;</span>So be honest! The more truthfully you answer, the more interesting your result will be.</li>
+      </ul>
+    </div>
 
-    <!-- OPINION INPUT -->
-    <section id="opinions" class="screen">
-      <div class="container">
-        <h2>Share 5 opinions</h2>
-        <p class="hint">Type any opinion, hot take, or belief you hold. It can be about anything — food, politics, life advice, whatever.</p>
-        <div id="opinion-inputs"></div>
-        <button class="btn-primary" id="begin-btn" onclick="beginQuiz()" disabled>Begin</button>
+    <div class="mb-6">
+      <h3 class="text-xs font-semibold text-gray-500 text-center mb-2 uppercase tracking-wide">Score distribution so far</h3>
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 h-36 relative">
+        <canvas id="landing-canvas" class="block w-full h-full"></canvas>
+        <p id="landing-empty" class="hidden absolute inset-0 flex items-center justify-center text-gray-500 text-sm">No scores yet — be the first!</p>
       </div>
-    </section>
+    </div>
 
-    <!-- QUIZ ROUND -->
-    <section id="quiz" class="screen">
-      <div class="container">
-        <div class="progress-bar">
-          <div class="progress-fill" id="progress-fill"></div>
-        </div>
-        <p class="round-label" id="round-label">Opinion 1 of 5</p>
-        <blockquote id="current-opinion"></blockquote>
-        <p class="prompt-text">Which response do you prefer?</p>
-        <div id="response-options" class="options"></div>
-        <div id="loading-spinner" class="spinner" style="display:none;">
-          <div class="spinner-dot"></div>
-          <p>AI is crafting responses…</p>
-        </div>
+    <button onclick="startQuiz()" class="w-full py-3 bg-brand hover:bg-brand-light text-white font-semibold rounded-xl transition-colors">
+      Take the Quiz
+    </button>
+  </div>
+
+  <!-- OPINIONS -->
+  <div id="opinions" class="screen hidden px-4 py-8 max-w-lg mx-auto">
+    <h2 class="text-xl sm:text-2xl font-bold mb-1">Share 5 opinions</h2>
+    <p class="text-gray-400 text-xs sm:text-sm mb-5">Type any opinion, hot take, or belief you hold. It can be about anything.</p>
+    <div id="opinion-inputs" class="space-y-3 mb-4"></div>
+    <button id="begin-btn" onclick="beginQuiz()" disabled
+      class="w-full py-3 bg-brand text-white font-semibold rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:bg-brand-light">
+      Begin
+    </button>
+  </div>
+
+  <!-- QUIZ -->
+  <div id="quiz" class="screen hidden px-4 py-8 max-w-lg mx-auto">
+    <div class="h-1 bg-gray-800 rounded-full mb-5 overflow-hidden">
+      <div id="progress-fill" class="h-full bg-gradient-to-r from-purple-500 to-teal-400 rounded-full transition-all duration-500" style="width:0%"></div>
+    </div>
+    <p id="round-label" class="text-xs text-gray-500 text-center mb-2">Opinion 1 of 5</p>
+    <blockquote id="current-opinion" class="bg-gray-900 border-l-2 border-brand rounded-r-lg px-4 py-3 text-sm sm:text-base italic text-gray-200 mb-4"></blockquote>
+    <p class="text-xs text-gray-500 text-center mb-3">Which response do you prefer?</p>
+    <div id="response-options" class="space-y-2.5"></div>
+    <div id="loading-spinner" class="hidden py-8 text-center">
+      <div class="w-8 h-8 border-2 border-gray-700 border-t-brand rounded-full spinner mx-auto mb-3"></div>
+      <p class="text-gray-500 text-sm">AI is crafting responses…</p>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="results" class="screen hidden px-4 py-8 max-w-lg mx-auto">
+    <h2 class="text-xl font-bold text-center mb-2">Your Score</h2>
+    <div class="text-center my-4">
+      <span id="score-number" class="text-6xl sm:text-7xl font-extrabold bg-gradient-to-r from-purple-500 to-teal-400 bg-clip-text text-transparent">0</span>
+      <span class="text-xl text-gray-500 font-semibold">/ 10</span>
+    </div>
+    <p id="score-description" class="text-center text-gray-400 text-sm mb-6"></p>
+
+    <div class="mb-6">
+      <h3 class="text-xs font-semibold text-gray-500 text-center mb-2 uppercase tracking-wide">Where you fall</h3>
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 h-36 relative overflow-hidden">
+        <canvas id="results-canvas" class="block w-full h-full"></canvas>
       </div>
-    </section>
+    </div>
 
-    <!-- RESULTS -->
-    <section id="results" class="screen">
-      <div class="container">
-        <h2>Your Score</h2>
-        <div class="score-display">
-          <span id="score-number">0</span>
-          <span class="score-max">/ 10</span>
-        </div>
-        <p id="score-description" class="score-desc"></p>
+    <details class="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-6 text-xs text-gray-400">
+      <summary class="font-semibold text-gray-300 cursor-pointer">How scoring works</summary>
+      <pre id="scoring-method" class="mt-3 whitespace-pre-wrap font-sans leading-relaxed"></pre>
+    </details>
 
-        <div class="distribution-section">
-          <h3>Where you fall</h3>
-          <div class="chart-container">
-            <canvas id="results-canvas"></canvas>
-          </div>
-        </div>
-
-        <details class="scoring-details">
-          <summary>How scoring works</summary>
-          <pre id="scoring-method"></pre>
-        </details>
-
-        <button class="btn-primary" onclick="resetQuiz()">Take it again</button>
-      </div>
-    </section>
+    <button onclick="resetQuiz()" class="w-full py-3 bg-brand hover:bg-brand-light text-white font-semibold rounded-xl transition-colors">
+      Take it again
+    </button>
   </div>
 
   <script src="/static/app.js"></script>
