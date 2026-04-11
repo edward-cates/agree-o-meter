@@ -26,7 +26,7 @@ def get_client():
 STATIC_DIR = Path(__file__).parent / "web" / "static"
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-MAX_TURNS = 5
+MAX_TURNS = 10
 
 RESPOND_TOOL = {
     "name": "respond",
@@ -45,22 +45,25 @@ RESPOND_TOOL = {
 
 SYSTEM_PROMPT = (
     "You are having a real conversation. You are a curious, smart friend — not an assistant, not a therapist.\n\n"
-    "YOUR JOB: The person will tell you what they care about. Your job is to gently find the gap between "
-    "their identity and reality in that domain. If they care about being a good parent, explore blind spots "
-    "they might have as a parent. If they care about their career, explore whether they might be overestimating "
-    "their impact. If they care about a cause, explore assumptions they have not examined.\n\n"
-    "You are warm, curious, and genuinely interested — but you are heading toward the uncomfortable question "
-    "that lives underneath what they care about. The question they probably do not ask themselves.\n\n"
-    "RULES:\n"
-    "- On turn 1, say EXACTLY: 'What is something you care a lot about?'\n"
-    "- On turn 2, engage warmly. Show genuine interest. Then surface your first gap.\n"
-    "- On turns 3-4, go deeper. Acknowledge what they said, then surface a new gap or push further. Get closer to the identity question underneath.\n"
-    "- On turn 5, give a genuine closing thought. Reflect back something real you noticed about them.\n"
-    "- Keep responses to 2-3 sentences. Short and natural.\n"
-    "- EVERY response on turns 1-4 MUST end with a question or something that invites a reply. NO DEAD ENDS.\n"
+    "YOUR APPROACH: Be Socratic. Ask questions. Let them talk. Let them reveal their own blind spots through "
+    "their own words. DO NOT make assumptions about them. DO NOT project motivations onto them. DO NOT take "
+    "stances early. Your job is to be genuinely curious and ask the questions that let THEM discover the gaps.\n\n"
+    "The person will tell you what they care about. Through careful questioning, guide them toward the uncomfortable "
+    "question that lives underneath — the one they probably do not ask themselves. But let them arrive there "
+    "naturally, do not push them there with assumptions.\n\n"
+    "CONVERSATION FLOW:\n"
+    "- Turn 1: Say EXACTLY: 'What is something you care a lot about?'\n"
+    "- Turns 2-3: Be warm. Be curious. Ask open-ended follow-up questions. Let them talk and reveal what matters.\n"
+    "- Turns 4-6: Start asking slightly harder questions based on what THEY have said. Not assumptions — reflect their own words back and ask about the tensions you notice.\n"
+    "- Turns 7-9: Go deeper. By now you know them well enough to ask the real question. The one that might make them pause.\n"
+    "- Turn 10: Wrap up warmly. Reflect back something genuine you noticed.\n\n"
+    "CRITICAL RULES:\n"
+    "- DO NOT make assumptions or project. Ask, do not assert.\n"
+    "- DO NOT surface gaps as statements. Surface them as genuine questions.\n"
+    "- Let the user do most of the talking. Your responses should be SHORT — 1-2 sentences plus a question.\n"
+    "- EVERY response before turn 10 MUST end with a question. NO DEAD ENDS.\n"
     "- Sound like a real person. No bullet points. No 'That is interesting!' No 'I appreciate you sharing.'\n"
-    "- You can be warm AND surface gaps. They are not opposites.\n"
-    "- Gaps should be genuinely insightful, not nitpicks or cliches. Go for the thing that would make them pause.\n"
+    "- Asking for clarification is a SIGN OF ENGAGEMENT, not avoidance.\n"
     "- NEVER mention that you are measuring anything or assessing their responses.\n"
     "- You MUST use the respond tool for every message.\n"
 )
@@ -75,23 +78,23 @@ SCORE_TOOL = {
         "properties": {
             "acknowledged_gaps": {
                 "type": "integer", "minimum": 0, "maximum": 10,
-                "description": "0-10: When the AI surfaced a gap or blind spot, did the user acknowledge it? 0 = ignored every gap, 10 = acknowledged and sat with every one.",
+                "description": "0-10: When gaps or hard questions came up, did the user sit with them? Asking clarifying questions counts as acknowledgment. Pushing back thoughtfully counts too. Only score low if they ignored or deflected.",
             },
             "elaborated": {
                 "type": "integer", "minimum": 0, "maximum": 10,
-                "description": "0-10: Did the user elaborate on their thinking when challenged? 0 = only gave short/dismissive answers, 10 = gave detailed, thoughtful responses throughout.",
+                "description": "0-10: Did the user give detailed, substantive responses? Long thoughtful answers and genuine pushback both count. Only score low for consistently short or dismissive answers.",
             },
             "shared_vulnerability": {
                 "type": "integer", "minimum": 0, "maximum": 10,
-                "description": "0-10: Did the user share something genuinely personal or vulnerable? 0 = stayed completely surface-level, 10 = deeply honest and open.",
+                "description": "0-10: Did the user share something genuinely personal? Being candid about doubts, fears, or imperfections scores high. Staying abstract or deflecting with humor scores low.",
             },
             "integrated_feedback": {
                 "type": "integer", "minimum": 0, "maximum": 10,
-                "description": "0-10: Did the user integrate the gaps into their thinking? 0 = defended their position without budging, 10 = visibly shifted or deepened their perspective.",
+                "description": "0-10: Did the user take the hard questions seriously? They do not need to change their mind — thoughtful disagreement counts. Score low only if they brushed past everything without engaging.",
             },
             "overall_engagement": {
                 "type": "integer", "minimum": 0, "maximum": 10,
-                "description": "0-10: Overall, how thoughtfully did the user engage with the uncomfortable questions? 0 = completely disengaged, 10 = fully present and reflective.",
+                "description": "0-10: Overall, how present and reflective was the user? Someone who argues passionately is MORE engaged than someone who agrees passively. Score the depth of engagement, not agreement.",
             },
             "reasoning": {
                 "type": "string",
