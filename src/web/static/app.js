@@ -5,97 +5,66 @@ let currentRound = 0;
 const tierColors = ['text-teal-400', 'text-emerald-300', 'text-amber-400', 'text-orange-300', 'text-red-400'];
 
 function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => {
-    s.classList.add('hidden');
-  });
-  const el = document.getElementById(id);
-  el.classList.remove('hidden');
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
   window.scrollTo(0, 0);
 }
 
-// --- Chart ---
+// Chart (results only)
 function drawHistogram(canvasId, scores, highlightScore) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
+  const parent = canvas.parentElement;
   const ctx = canvas.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
-  const rect = canvas.getBoundingClientRect();
-  canvas.width = rect.width * dpr;
-  canvas.height = rect.height * dpr;
+  const w = parent.clientWidth - 24; // account for padding
+  const h = parent.clientHeight - 24;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
   ctx.scale(dpr, dpr);
-  const w = rect.width;
-  const h = rect.height;
 
   const bins = new Array(11).fill(0);
-  scores.forEach(s => {
-    const bin = Math.min(10, Math.max(0, Math.round(s)));
-    bins[bin]++;
-  });
+  scores.forEach(s => bins[Math.min(10, Math.max(0, Math.round(s)))]++);
   const maxCount = Math.max(...bins, 1);
 
-  const barGap = 4;
-  const totalGaps = barGap * 12;
-  const barWidth = (w - totalGaps) / 11;
-  const chartBottom = h - 20;
-  const chartTop = 4;
-  const chartHeight = chartBottom - chartTop;
+  const gap = 4;
+  const barW = (w - gap * 12) / 11;
+  const bottom = h - 18;
+  const top = 4;
+  const chartH = bottom - top;
 
   ctx.clearRect(0, 0, w, h);
-
   bins.forEach((count, i) => {
-    const x = barGap + i * (barWidth + barGap);
-    const barH = maxCount > 0 ? (count / maxCount) * chartHeight : 0;
-    const y = chartBottom - barH;
-    const isHighlight = highlightScore !== undefined && Math.round(highlightScore) === i;
+    const x = gap + i * (barW + gap);
+    const barH = (count / maxCount) * chartH;
+    const y = bottom - barH;
+    const isHl = highlightScore !== undefined && Math.round(highlightScore) === i;
 
     ctx.shadowBlur = 0;
-    if (isHighlight) {
-      ctx.fillStyle = '#6c5ce7';
-      ctx.shadowColor = 'rgba(108,92,231,0.5)';
-      ctx.shadowBlur = 8;
-    } else {
-      ctx.fillStyle = count > 0 ? '#374151' : '#1f2937';
-    }
+    ctx.fillStyle = isHl ? '#6c5ce7' : (count > 0 ? '#374151' : '#1f2937');
+    if (isHl) { ctx.shadowColor = 'rgba(108,92,231,0.5)'; ctx.shadowBlur = 8; }
 
-    const r = Math.min(3, barWidth / 2);
-    if (barH > r) {
-      ctx.beginPath();
-      ctx.moveTo(x, chartBottom);
-      ctx.lineTo(x, y + r);
-      ctx.arcTo(x, y, x + r, y, r);
-      ctx.arcTo(x + barWidth, y, x + barWidth, y + r, r);
-      ctx.lineTo(x + barWidth, chartBottom);
-      ctx.closePath();
-      ctx.fill();
-    } else {
-      ctx.fillRect(x, chartBottom - Math.max(barH, 2), barWidth, Math.max(barH, 2));
-    }
-
+    ctx.fillRect(x, bottom - Math.max(barH, 2), barW, Math.max(barH, 2));
     ctx.shadowBlur = 0;
-    ctx.fillStyle = isHighlight ? '#e5e7eb' : '#6b7280';
+
+    ctx.fillStyle = isHl ? '#e5e7eb' : '#6b7280';
     ctx.font = '10px system-ui, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(i.toString(), x + barWidth / 2, h - 4);
+    ctx.fillText(i.toString(), x + barW / 2, h - 2);
   });
 }
 
-// --- Landing ---
+// Landing
 async function loadScores() {
   try {
     const res = await fetch('/api/scores');
     const data = await res.json();
     const scores = data.scores || [];
-    const emptyEl = document.getElementById('landing-empty');
-    if (scores.length === 0) {
-      emptyEl.style.display = 'flex';
-    } else {
-      emptyEl.style.display = 'none';
-      drawHistogram('landing-canvas', scores);
-    }
+    document.getElementById('score-count').textContent = scores.length;
   } catch {
-    const emptyEl = document.getElementById('landing-empty');
-    emptyEl.classList.remove('hidden');
-    emptyEl.textContent = "Couldn't load scores";
+    document.getElementById('score-count').textContent = '—';
   }
 }
 
@@ -104,7 +73,7 @@ function startQuiz() {
   buildOpinionInputs();
 }
 
-// --- Opinions ---
+// Opinions
 function buildOpinionInputs() {
   const container = document.getElementById('opinion-inputs');
   container.innerHTML = '';
@@ -112,34 +81,30 @@ function buildOpinionInputs() {
     const row = document.createElement('div');
     row.className = 'flex items-center gap-2';
     row.innerHTML = `
-      <span class="text-xs font-bold text-brand w-5 text-center shrink-0">${i + 1}</span>
+      <span class="text-xs font-bold text-brand shrink-0" style="width:1.25rem; text-align:center">${i + 1}</span>
       <input type="text" placeholder="Type an opinion…" maxlength="300" data-idx="${i}"
-        class="flex-1 min-w-0 px-3 py-2.5 bg-gray-900 border border-gray-800 rounded-lg text-gray-100 text-sm placeholder-gray-600 focus:outline-none focus:border-brand" />
+        style="flex:1; min-width:0; font-size:16px; padding:0.625rem 0.75rem; background:#111827; border:1px solid #1f2937; border-radius:0.5rem; color:#f3f4f6; outline:none" />
     `;
     container.appendChild(row);
   }
-  container.querySelectorAll('input').forEach(inp => {
-    inp.addEventListener('input', checkAllFilled);
-  });
+  container.querySelectorAll('input').forEach(inp => inp.addEventListener('input', checkAllFilled));
   container.querySelector('input').focus();
 }
 
 function checkAllFilled() {
   const inputs = document.querySelectorAll('#opinion-inputs input');
-  const filled = [...inputs].every(i => i.value.trim().length > 0);
-  document.getElementById('begin-btn').disabled = !filled;
+  document.getElementById('begin-btn').disabled = ![...inputs].every(i => i.value.trim().length > 0);
 }
 
 function beginQuiz() {
-  const inputs = document.querySelectorAll('#opinion-inputs input');
-  opinions = [...inputs].map(i => i.value.trim());
+  opinions = [...document.querySelectorAll('#opinion-inputs input')].map(i => i.value.trim());
   choices = [];
   currentRound = 0;
   showScreen('quiz');
   loadRound();
 }
 
-// --- Quiz ---
+// Quiz
 async function loadRound() {
   const optionsEl = document.getElementById('response-options');
   const spinnerEl = document.getElementById('loading-spinner');
@@ -158,40 +123,30 @@ async function loadRound() {
     });
     const data = await res.json();
     spinnerEl.classList.add('hidden');
-
-    if (data.error) {
-      optionsEl.innerHTML = `<p class="text-red-400 text-sm text-center">Error: ${data.error}</p>`;
-      return;
-    }
+    if (data.error) { optionsEl.innerHTML = `<p class="text-red-400 text-sm text-center">Error: ${data.error}</p>`; return; }
 
     data.responses.forEach((resp, idx) => {
       const btn = document.createElement('button');
-      btn.className = 'w-full text-left px-3 py-3 bg-gray-900 border border-gray-800 rounded-lg transition-colors hover:bg-gray-800 hover:border-brand active:bg-gray-800';
-      btn.innerHTML = `<span class="block text-[10px] font-bold uppercase tracking-wider mb-0.5 ${tierColors[idx]}">${resp.label}</span><span class="text-sm text-gray-200 leading-snug">${resp.text}</span>`;
+      btn.style.cssText = 'display:block; width:100%; text-align:left; padding:0.75rem; background:#111827; border:1px solid #1f2937; border-radius:0.5rem; color:#e5e7eb; font-size:0.875rem; line-height:1.4; cursor:pointer; word-break:break-word';
+      btn.innerHTML = `<span class="block text-[10px] font-bold uppercase tracking-wider mb-0.5 ${tierColors[idx]}">${resp.label}</span>${resp.text}`;
       btn.onclick = () => selectOption(idx);
       optionsEl.appendChild(btn);
     });
   } catch {
     spinnerEl.classList.add('hidden');
-    optionsEl.innerHTML = `<p class="text-red-400 text-sm text-center">Something went wrong. Please try again.</p>`;
+    optionsEl.innerHTML = `<p class="text-red-400 text-sm text-center">Something went wrong.</p>`;
   }
 }
 
-function selectOption(tierIndex) {
-  choices.push(tierIndex);
+function selectOption(idx) {
+  choices.push(idx);
   currentRound++;
-  if (currentRound < 5) {
-    loadRound();
-  } else {
-    submitScore();
-  }
+  currentRound < 5 ? loadRound() : submitScore();
 }
 
-// --- Results ---
+// Results
 async function submitScore() {
   showScreen('results');
-  document.getElementById('progress-fill').style.width = '100%';
-
   try {
     const res = await fetch('/api/submit-score', {
       method: 'POST',
@@ -199,44 +154,36 @@ async function submitScore() {
       body: JSON.stringify({ choices }),
     });
     const data = await res.json();
-
     animateNumber(document.getElementById('score-number'), data.score);
     document.getElementById('score-description').textContent = getScoreDescription(data.score);
-    drawHistogram('results-canvas', data.all_scores, data.score);
+    setTimeout(() => drawHistogram('results-canvas', data.all_scores, data.score), 100);
     document.getElementById('scoring-method').textContent = data.scoring_method;
   } catch {
-    document.getElementById('score-description').textContent = 'Error submitting score. Your data was not saved.';
+    document.getElementById('score-description').textContent = 'Error submitting score.';
   }
 }
 
 function animateNumber(el, target) {
-  const duration = 1200;
   const start = performance.now();
-  function tick(now) {
-    const elapsed = now - start;
-    const progress = Math.min(elapsed / duration, 1);
-    const eased = 1 - Math.pow(1 - progress, 3);
-    el.textContent = (eased * target).toFixed(1);
-    if (progress < 1) requestAnimationFrame(tick);
-  }
-  requestAnimationFrame(tick);
+  (function tick(now) {
+    const p = Math.min((now - start) / 1200, 1);
+    el.textContent = (((1 - Math.pow(1 - p, 3)) * target)).toFixed(1);
+    if (p < 1) requestAnimationFrame(tick);
+  })(start);
 }
 
-function getScoreDescription(score) {
-  if (score >= 9) return 'You strongly prefer when others agree with you.';
-  if (score >= 7) return 'You lean toward agreement but can handle some pushback.';
-  if (score >= 5) return "You're balanced — you appreciate both agreement and honesty.";
-  if (score >= 3) return 'You prefer people to push back and challenge your ideas.';
+function getScoreDescription(s) {
+  if (s >= 9) return 'You strongly prefer when others agree with you.';
+  if (s >= 7) return 'You lean toward agreement but can handle some pushback.';
+  if (s >= 5) return "You're balanced — you appreciate both agreement and honesty.";
+  if (s >= 3) return 'You prefer people to push back and challenge your ideas.';
   return 'You strongly prefer direct, unfiltered disagreement.';
 }
 
 function resetQuiz() {
-  opinions = [];
-  choices = [];
-  currentRound = 0;
+  opinions = []; choices = []; currentRound = 0;
   showScreen('landing');
   loadScores();
 }
 
-// Init
 loadScores();
