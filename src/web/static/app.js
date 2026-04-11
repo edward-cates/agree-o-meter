@@ -1,8 +1,7 @@
-let opinions = [];
-let choices = [];
+let prompts = [];
 let currentRound = 0;
-
-const tierColors = ['text-teal-400', 'text-emerald-300', 'text-amber-400', 'text-orange-300', 'text-red-400'];
+let choices = []; // "warm" or "honest"
+let currentWarmIs = null;
 
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
@@ -10,14 +9,14 @@ function showScreen(id) {
   window.scrollTo(0, 0);
 }
 
-// Chart (results only)
+// Chart
 function drawHistogram(canvasId, scores, highlightScore) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
   const parent = canvas.parentElement;
   const ctx = canvas.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
-  const w = parent.clientWidth - 24; // account for padding
+  const w = parent.clientWidth - 24;
   const h = parent.clientHeight - 24;
   canvas.width = w * dpr;
   canvas.height = h * dpr;
@@ -32,20 +31,17 @@ function drawHistogram(canvasId, scores, highlightScore) {
   const gap = 4;
   const barW = (w - gap * 12) / 11;
   const bottom = h - 18;
-  const top = 4;
-  const chartH = bottom - top;
+  const chartH = bottom - 4;
 
   ctx.clearRect(0, 0, w, h);
   bins.forEach((count, i) => {
     const x = gap + i * (barW + gap);
     const barH = (count / maxCount) * chartH;
-    const y = bottom - barH;
     const isHl = highlightScore !== undefined && Math.round(highlightScore) === i;
 
     ctx.shadowBlur = 0;
     ctx.fillStyle = isHl ? '#6c5ce7' : (count > 0 ? '#374151' : '#1f2937');
     if (isHl) { ctx.shadowColor = 'rgba(108,92,231,0.5)'; ctx.shadowBlur = 8; }
-
     ctx.fillRect(x, bottom - Math.max(barH, 2), barW, Math.max(barH, 2));
     ctx.shadowBlur = 0;
 
@@ -71,89 +67,102 @@ async function loadScores() {
     }
   } catch {
     const emptyEl = document.getElementById('landing-empty');
-    if (emptyEl) { emptyEl.style.display = 'flex'; emptyEl.textContent = "Couldn't load scores"; }
+    if (emptyEl) { emptyEl.style.display = 'flex'; }
   }
 }
 
-function startQuiz() {
-  showScreen('opinions');
-  buildOpinionInputs();
-}
-
-// Opinions
-function buildOpinionInputs() {
-  const container = document.getElementById('opinion-inputs');
-  container.innerHTML = '';
-  for (let i = 0; i < 5; i++) {
-    const row = document.createElement('div');
-    row.className = 'flex items-center gap-2';
-    row.innerHTML = `
-      <span class="text-xs font-bold text-brand shrink-0" style="width:1.25rem; text-align:center">${i + 1}</span>
-      <input type="text" placeholder="Type an idea…" maxlength="300" data-idx="${i}"
-        style="flex:1; min-width:0; font-size:16px; padding:0.625rem 0.75rem; background:#111827; border:1px solid #1f2937; border-radius:0.5rem; color:#f3f4f6; outline:none" />
-    `;
-    container.appendChild(row);
+async function startQuiz() {
+  try {
+    const res = await fetch('/api/prompts');
+    const data = await res.json();
+    prompts = data.prompts;
+  } catch {
+    prompts = [
+      "What's a food opinion you'll defend?",
+      "What's a life decision others questioned?",
+      "What are you working on that matters to you?",
+      "What belief do you hold that others disagree with?",
+      "What about yourself are you trying to change?",
+    ];
   }
-  container.querySelectorAll('input').forEach(inp => inp.addEventListener('input', checkAllFilled));
-  container.querySelector('input').focus();
-}
-
-function checkAllFilled() {
-  const inputs = document.querySelectorAll('#opinion-inputs input');
-  document.getElementById('begin-btn').disabled = ![...inputs].every(i => i.value.trim().length > 0);
-}
-
-function beginQuiz() {
-  opinions = [...document.querySelectorAll('#opinion-inputs input')].map(i => i.value.trim());
-  choices = [];
   currentRound = 0;
+  choices = [];
   showScreen('quiz');
-  loadRound();
+  showInputPhase();
 }
 
-// Quiz
-async function loadRound() {
-  const optionsEl = document.getElementById('response-options');
-  const spinnerEl = document.getElementById('loading-spinner');
-  optionsEl.innerHTML = '';
-  spinnerEl.classList.remove('hidden');
+// Quiz flow
+function showInputPhase() {
+  document.getElementById('input-phase').classList.remove('hidden');
+  document.getElementById('choice-phase').classList.add('hidden');
+  document.getElementById('loading-spinner').classList.add('hidden');
 
-  document.getElementById('round-label').textContent = `Idea ${currentRound + 1} of 5`;
-  document.getElementById('current-opinion').textContent = `"${opinions[currentRound]}"`;
+  document.getElementById('round-label').textContent = `Round ${currentRound + 1} of 5`;
   document.getElementById('progress-fill').style.width = `${(currentRound / 5) * 100}%`;
+  document.getElementById('round-prompt').textContent = prompts[currentRound];
+
+  const textarea = document.getElementById('user-input');
+  textarea.value = '';
+  textarea.focus();
+
+  const btn = document.getElementById('submit-input-btn');
+  btn.disabled = true;
+  textarea.oninput = () => { btn.disabled = textarea.value.trim().length === 0; };
+}
+
+async function submitInput() {
+  const textarea = document.getElementById('user-input');
+  const opinion = textarea.value.trim();
+  if (!opinion) return;
+
+  document.getElementById('input-phase').classList.add('hidden');
+  document.getElementById('loading-spinner').classList.remove('hidden');
 
   try {
-    const res = await fetch('/api/generate-responses', {
+    const res = await fetch('/api/generate-pair', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ opinion: opinions[currentRound] }),
+      body: JSON.stringify({ opinion, round: currentRound }),
     });
     const data = await res.json();
-    spinnerEl.classList.add('hidden');
-    if (data.error) { optionsEl.innerHTML = `<p class="text-red-400 text-sm text-center">Error: ${data.error}</p>`; return; }
 
-    data.responses.forEach((resp, idx) => {
-      const btn = document.createElement('button');
-      btn.style.cssText = 'display:block; width:100%; text-align:left; padding:0.75rem; background:#111827; border:1px solid #1f2937; border-radius:0.5rem; color:#e5e7eb; font-size:0.875rem; line-height:1.4; cursor:pointer; word-break:break-word';
-      btn.innerHTML = `<span class="block text-[10px] font-bold uppercase tracking-wider mb-0.5 ${tierColors[idx]}">${resp.label}</span>${resp.text}`;
-      btn.onclick = () => selectOption(idx);
-      optionsEl.appendChild(btn);
-    });
+    if (data.error) {
+      document.getElementById('loading-spinner').classList.add('hidden');
+      document.getElementById('input-phase').classList.remove('hidden');
+      alert('Error: ' + data.error);
+      return;
+    }
+
+    currentWarmIs = data.warm_is;
+    document.getElementById('option-a').textContent = data.a;
+    document.getElementById('option-b').textContent = data.b;
+
+    document.getElementById('loading-spinner').classList.add('hidden');
+    document.getElementById('choice-phase').classList.remove('hidden');
   } catch {
-    spinnerEl.classList.add('hidden');
-    optionsEl.innerHTML = `<p class="text-red-400 text-sm text-center">Something went wrong.</p>`;
+    document.getElementById('loading-spinner').classList.add('hidden');
+    document.getElementById('input-phase').classList.remove('hidden');
+    alert('Something went wrong. Try again.');
   }
 }
 
-function selectOption(idx) {
-  choices.push(idx);
+function pickChoice(letter) {
+  const pickedWarm = (letter === currentWarmIs);
+  choices.push(pickedWarm ? 'warm' : 'honest');
+
   currentRound++;
-  currentRound < 5 ? loadRound() : submitScore();
+  if (currentRound < 5) {
+    showInputPhase();
+  } else {
+    submitScore();
+  }
 }
 
 // Results
 async function submitScore() {
   showScreen('results');
+  document.getElementById('progress-fill').style.width = '100%';
+
   try {
     const res = await fetch('/api/submit-score', {
       method: 'POST',
@@ -161,6 +170,7 @@ async function submitScore() {
       body: JSON.stringify({ choices }),
     });
     const data = await res.json();
+
     animateNumber(document.getElementById('score-number'), data.score);
     document.getElementById('score-description').textContent = getScoreDescription(data.score);
     setTimeout(() => drawHistogram('results-canvas', data.all_scores, data.score), 100);
@@ -174,21 +184,22 @@ function animateNumber(el, target) {
   const start = performance.now();
   (function tick(now) {
     const p = Math.min((now - start) / 1200, 1);
-    el.textContent = (((1 - Math.pow(1 - p, 3)) * target)).toFixed(1);
+    el.textContent = ((1 - Math.pow(1 - p, 3)) * target).toFixed(1);
     if (p < 1) requestAnimationFrame(tick);
   })(start);
 }
 
 function getScoreDescription(s) {
-  if (s >= 9) return 'You strongly prefer encouragement — you want to hear your ideas are great.';
-  if (s >= 7) return 'You lean toward encouragement but can handle some honest feedback.';
-  if (s >= 5) return "You're balanced — you appreciate both support and honest pushback.";
-  if (s >= 3) return 'You prefer honest feedback over encouragement, even if it stings.';
-  return 'You strongly prefer blunt honesty — tell it like it is, no sugarcoating.';
+  if (s >= 9) return 'You consistently chose comfort, even when the stakes were high.';
+  if (s >= 7) return 'You lean toward validation. The honest responses felt harder to pick as things got personal.';
+  if (s >= 5) return 'You are right in the middle. You picked comfort on some rounds and truth on others.';
+  if (s >= 3) return 'You lean toward honesty. You chose the harder response even when it was personal.';
+  return 'You consistently chose truth over comfort, even at the highest stakes.';
 }
 
 function resetQuiz() {
-  opinions = []; choices = []; currentRound = 0;
+  currentRound = 0;
+  choices = [];
   showScreen('landing');
   loadScores();
 }

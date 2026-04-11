@@ -25,15 +25,15 @@
         Agree-O-Meter
       </h1>
       <p class="text-center text-gray-400 text-sm mb-6">
-        Share your ideas. See how much you want to be told they're good.
+        At what point do you choose comfort over truth?
       </p>
 
       <div class="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-6">
         <h2 class="text-sm font-bold text-teal-400 mb-3">How it works</h2>
         <div class="space-y-2 text-xs text-gray-400">
-          <p>You'll share 5 ideas — things you're thinking about doing, building, or changing. The more you actually care about the idea, the better your result will be.</p>
-          <p>An AI will respond to each idea with different levels of encouragement, from "great idea!" to "terrible idea." You pick the response you prefer.</p>
-          <p>At the end, you'll get a score from 0–10 showing how much you prefer encouragement vs. honest pushback.</p>
+          <p>5 rounds of escalating personal questions. You share something real, then pick between two responses: one that validates you and one that challenges you.</p>
+          <p>The stakes go up each round. Early questions are easy. Later ones ask you to be vulnerable. <strong class="text-gray-300">The more honestly you answer, the more accurate your score.</strong></p>
+          <p>At the end, you get a score showing where you fall on the comfort-vs-truth spectrum.</p>
         </div>
       </div>
 
@@ -43,9 +43,9 @@
           <h2 class="text-sm font-bold text-teal-400">Totally anonymous</h2>
         </div>
         <div class="space-y-2 text-xs text-gray-400">
-          <p>&#10003; Your ideas are sent to AI to generate responses — <strong class="text-gray-300">we don't store any text you type</strong>.</p>
-          <p>&#10003; The <strong class="text-gray-300">only</strong> thing saved is your score (0–10). No text, no cookies, no accounts.</p>
-          <p>&#10003; <strong class="text-gray-300">No way to link your scores or answers back to you.</strong></p>
+          <p>&#10003; Your answers are sent to AI to generate responses — <strong class="text-gray-300">we store nothing you type</strong>.</p>
+          <p>&#10003; The <strong class="text-gray-300">only</strong> thing saved is your score (0-10). No text, no cookies, no accounts.</p>
+          <p>&#10003; <strong class="text-gray-300">No way to link your score or answers back to you.</strong></p>
         </div>
       </div>
 
@@ -55,6 +55,10 @@
           <canvas id="landing-canvas" style="display:block; width:100%; height:100%"></canvas>
           <p id="landing-empty" class="absolute inset-0 flex items-center justify-center text-gray-500 text-sm" style="display:none">No scores yet</p>
         </div>
+        <div class="flex justify-between text-[10px] text-gray-600 mt-1 px-1">
+          <span>prefers truth</span>
+          <span>prefers comfort</span>
+        </div>
       </div>
 
       <button onclick="startQuiz()" class="w-full py-3 bg-brand hover:bg-brand-light text-white font-semibold rounded-xl">
@@ -63,32 +67,40 @@
     </div>
   </div>
 
-  <!-- OPINIONS -->
-  <div id="opinions" class="screen hidden" style="max-width:100vw; overflow:hidden">
-    <div class="px-4 py-8 mx-auto" style="max-width:32rem; width:100%">
-      <h2 class="text-xl font-bold mb-1">Share 5 ideas</h2>
-      <p class="text-gray-400 text-xs mb-5">What are you thinking about doing, building, or changing? The more you care about each idea, the better.</p>
-      <div id="opinion-inputs" class="space-y-3 mb-4"></div>
-      <button id="begin-btn" onclick="beginQuiz()" disabled
-        class="w-full py-3 bg-brand text-white font-semibold rounded-xl disabled:opacity-30">
-        Begin
-      </button>
-    </div>
-  </div>
-
-  <!-- QUIZ -->
+  <!-- QUIZ ROUND -->
   <div id="quiz" class="screen hidden" style="max-width:100vw; overflow:hidden">
     <div class="px-4 py-8 mx-auto" style="max-width:32rem; width:100%">
       <div class="h-1 bg-gray-800 rounded-full mb-5 overflow-hidden">
         <div id="progress-fill" class="h-full bg-gradient-to-r from-purple-500 to-teal-400 rounded-full transition-all duration-500" style="width:0%"></div>
       </div>
-      <p id="round-label" class="text-xs text-gray-500 text-center mb-2">Idea 1 of 5</p>
-      <div id="current-opinion" class="bg-gray-900 border-l-2 border-brand rounded-r-lg px-4 py-3 text-sm italic text-gray-200 mb-4" style="word-break:break-word"></div>
-      <p class="text-xs text-gray-500 text-center mb-3">Which response do you prefer?</p>
-      <div id="response-options" class="space-y-2"></div>
+      <p id="round-label" class="text-xs text-gray-500 text-center mb-4">Round 1 of 5</p>
+
+      <!-- Input phase -->
+      <div id="input-phase">
+        <p id="round-prompt" class="text-sm font-medium text-gray-200 mb-3"></p>
+        <textarea id="user-input" rows="3" placeholder="Type your answer..."
+          style="width:100%; min-width:0; font-size:16px; padding:0.75rem; background:#111827; border:1px solid #1f2937; border-radius:0.5rem; color:#f3f4f6; outline:none; resize:none; font-family:inherit"></textarea>
+        <button id="submit-input-btn" onclick="submitInput()" disabled
+          class="w-full mt-3 py-3 bg-brand text-white font-semibold rounded-xl disabled:opacity-30">
+          Next
+        </button>
+      </div>
+
+      <!-- Choice phase -->
+      <div id="choice-phase" class="hidden">
+        <p class="text-xs text-gray-500 text-center mb-4">Which response do you prefer?</p>
+        <div class="space-y-3">
+          <button id="option-a" onclick="pickChoice('a')"
+            style="display:block; width:100%; text-align:left; padding:1rem; background:#111827; border:1px solid #1f2937; border-radius:0.75rem; color:#e5e7eb; font-size:0.875rem; line-height:1.5; cursor:pointer; word-break:break-word; font-family:inherit"></button>
+          <button id="option-b" onclick="pickChoice('b')"
+            style="display:block; width:100%; text-align:left; padding:1rem; background:#111827; border:1px solid #1f2937; border-radius:0.75rem; color:#e5e7eb; font-size:0.875rem; line-height:1.5; cursor:pointer; word-break:break-word; font-family:inherit"></button>
+        </div>
+      </div>
+
+      <!-- Loading -->
       <div id="loading-spinner" class="hidden py-8 text-center">
         <div class="w-8 h-8 border-2 border-gray-700 border-t-brand rounded-full spinner mx-auto mb-3"></div>
-        <p class="text-gray-500 text-sm">AI is crafting responses…</p>
+        <p class="text-gray-500 text-sm">Thinking...</p>
       </div>
     </div>
   </div>
@@ -108,6 +120,10 @@
         <div class="bg-gray-900 border border-gray-800 rounded-xl p-3 relative" style="height:144px; overflow:hidden">
           <canvas id="results-canvas" style="display:block; width:100%; height:100%"></canvas>
         </div>
+        <div class="flex justify-between text-[10px] text-gray-600 mt-1 px-1">
+          <span>prefers truth</span>
+          <span>prefers comfort</span>
+        </div>
       </div>
 
       <details class="bg-gray-900 border border-gray-800 rounded-xl p-4 mb-6 text-xs text-gray-400">
@@ -121,6 +137,6 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=3"></script>
+  <script src="/static/app.js?v=4"></script>
 </body>
 </html>

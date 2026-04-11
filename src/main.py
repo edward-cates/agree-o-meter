@@ -1,5 +1,6 @@
 import os
 import json
+import random
 import logging
 from pathlib import Path
 
@@ -15,7 +16,6 @@ logger = logging.getLogger("agree-o-meter")
 
 app = FastAPI()
 
-# Defer client creation so missing key doesn't crash on import
 _client = None
 
 def get_client():
@@ -26,6 +26,16 @@ def get_client():
 
 STATIC_DIR = Path(__file__).parent / "web" / "static"
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+ROUND_PROMPTS = [
+    "What's a food opinion you'll defend to the death?",
+    "What's a life decision you've made that others questioned?",
+    "What's something you're currently working on that matters to you?",
+    "What's a belief you hold that most people around you disagree with?",
+    "What's something about yourself you're trying to change?",
+]
+
+ROUND_WEIGHTS = [1.0, 1.5, 2.0, 2.5, 3.0]  # total = 10
 
 
 @app.on_event("startup")
@@ -41,86 +51,94 @@ def index():
     return FileResponse(STATIC_DIR / "index.html")
 
 
-@app.post("/api/generate-responses")
-async def generate_responses(request: Request):
-    body = await request.json()
-    idea = body.get("opinion", "").strip()
-    if not idea:
-        return JSONResponse({"error": "Idea is required"}, status_code=400)
+@app.get("/api/prompts")
+def get_prompts():
+    return {"prompts": ROUND_PROMPTS}
 
-    # Log that a request was made, but NOT the idea text (privacy)
-    logger.info("Generating responses for an idea")
 
-    RESPONSE_TOOL = {
-        "name": "submit_responses",
-        "description": "Submit the 5 generated responses to the user's idea",
-        "input_schema": {
-            "type": "object",
-            "required": ["responses"],
-            "properties": {
-                "responses": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "required": ["label", "text"],
-                        "properties": {
-                            "label": {"type": "string"},
-                            "text": {"type": "string"},
-                        },
-                    },
-                    "minItems": 5,
-                    "maxItems": 5,
-                }
+PAIR_TOOL = {
+    "name": "submit_pair",
+    "description": "Submit a pair of responses: one warm/validating and one blunt/honest",
+    "input_schema": {
+        "type": "object",
+        "required": ["warm", "honest"],
+        "properties": {
+            "warm": {
+                "type": "string",
+                "description": "A warm, validating response (1-2 sentences). Makes the person feel seen and supported.",
+            },
+            "honest": {
+                "type": "string",
+                "description": "A blunt, honest response (1-2 sentences). Prioritizes being useful over being nice.",
             },
         },
-    }
+    },
+}
+
+
+@app.post("/api/generate-pair")
+async def generate_pair(request: Request):
+    body = await request.json()
+    opinion = body.get("opinion", "").strip()
+    round_num = body.get("round", 0)
+
+    if not opinion:
+        return JSONResponse({"error": "Response is required"}, status_code=400)
+
+    logger.info(f"Generating pair for round {round_num}")
+
+    prompt_context = ROUND_PROMPTS[round_num] if round_num < len(ROUND_PROMPTS) else ""
 
     prompt = (
-        f'The user has shared this idea: "{idea}"\n\n'
-        "Generate exactly 5 responses to this idea using the submit_responses tool. "
-        "Each response should evaluate the idea on a scale from enthusiastic endorsement to blunt discouragement:\n\n"
-        '1. label "Great idea!" - enthusiastic endorsement, this is brilliant, go for it\n'
-        '2. label "Good idea, but..." - supportive but raises practical concerns or caveats\n'
-        '3. label "Its okay" - neutral, lukewarm, neither encouraging nor discouraging\n'
-        '4. label "Id reconsider" - gentle discouragement, acknowledges why they care but suggests its not great\n'
-        '5. label "Terrible idea" - blunt and direct, everything about this is a bad idea (not mean, but pulls no punches)\n\n'
-        "Each response text should be 1-3 sentences, natural and conversational."
+        f'The user was asked: "{prompt_context}"\n'
+        f'They answered: "{opinion}"\n\n'
+        "Generate two short responses using the submit_pair tool.\n\n"
+        "The WARM response should make them feel validated and supported. "
+        "Like a good friend who gets it. Be genuine, not sycophantic. 1-2 sentences.\n\n"
+        "The HONEST response should prioritize being useful over being nice. "
+        "Like a smart friend who respects you too much to bullshit you. "
+        "Challenge their thinking, point out what they might be missing, or name the hard truth. "
+        "Be direct but not cruel. 1-2 sentences."
     )
 
     try:
         client = get_client()
         message = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=1024,
-            messages=[{"role": "user", "content": prompt}],  # idea text only sent to AI, never logged
-            tools=[RESPONSE_TOOL],
-            tool_choice={"type": "tool", "name": "submit_responses"},
+            model="claude-opus-4-6-20250414",
+            max_tokens=512,
+            messages=[{"role": "user", "content": prompt}],
+            tools=[PAIR_TOOL],
+            tool_choice={"type": "tool", "name": "submit_pair"},
         )
     except Exception as e:
         logger.error(f"Anthropic API error: {type(e).__name__}: {e}")
         return JSONResponse({"error": "AI service unavailable"}, status_code=503)
 
-    # Extract tool use result — guaranteed structured JSON
     for block in message.content:
-        if block.type == "tool_use" and block.name == "submit_responses":
-            responses = block.input.get("responses", [])
-            if len(responses) == 5:
-                logger.info("Responses generated successfully via tool use")
-                return {"responses": responses}
+        if block.type == "tool_use" and block.name == "submit_pair":
+            warm = block.input.get("warm", "")
+            honest = block.input.get("honest", "")
+            if warm and honest:
+                # Randomize which is A and which is B
+                if random.random() < 0.5:
+                    logger.info("Pair generated (warm=A)")
+                    return {"a": warm, "b": honest, "warm_is": "a"}
+                else:
+                    logger.info("Pair generated (warm=B)")
+                    return {"a": honest, "b": warm, "warm_is": "b"}
 
     logger.error("No valid tool use response found")
     return JSONResponse({"error": "Failed to generate responses"}, status_code=500)
 
 
 SCORING_METHOD = (
-    "Each of 5 ideas gets a response choice scored as:\n"
-    "- Great idea! = 10\n"
-    "- Good idea, but... = 7.5\n"
-    "- Its okay = 5\n"
-    "- Id reconsider = 2.5\n"
-    "- Terrible idea = 0\n"
-    "Final score = mean of all 5 choices, yielding a 0-10 scale.\n"
-    "Higher = stronger preference for encouragement."
+    "5 rounds with escalating emotional stakes.\n"
+    "Round weights: 1.0, 1.5, 2.0, 2.5, 3.0 (total = 10)\n"
+    "Each round: pick between a warm/validating response or a blunt/honest one.\n"
+    "Picking warm = full weight toward score. Picking honest = 0.\n"
+    "Final score = (sum of warm-pick weights / 10) * 10.\n"
+    "Higher = prefers comfort. Lower = prefers truth.\n"
+    "Later rounds (higher personal stakes) count more."
 )
 
 
@@ -131,22 +149,24 @@ async def submit_score(request: Request):
     if len(choices) != 5:
         return JSONResponse({"error": "Exactly 5 choices required"}, status_code=400)
 
-    score_map = {0: 10, 1: 7.5, 2: 5, 3: 2.5, 4: 0}
-    total = sum(score_map.get(c, 5) for c in choices)
-    score = round(total / 5, 2)
+    # choices[i] = "warm" or "honest"
+    total = 0
+    for i, choice in enumerate(choices):
+        if choice == "warm":
+            total += ROUND_WEIGHTS[i]
+
+    score = round((total / 10) * 10, 2)
 
     try:
-        row_id = save_score(score, SCORING_METHOD)
+        save_score(score, SCORING_METHOD)
         logger.info(f"Score saved: {score}")
     except Exception as e:
-        logger.error(f"DB error saving score: {type(e).__name__}: {e}")
+        logger.error(f"DB error: {type(e).__name__}: {e}")
         return JSONResponse({"error": "Failed to save score"}, status_code=500)
-
-    all_scores = get_all_scores()
 
     return {
         "score": score,
-        "all_scores": all_scores,
+        "all_scores": get_all_scores(),
         "scoring_method": SCORING_METHOD,
     }
 
