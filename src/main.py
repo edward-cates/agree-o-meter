@@ -51,18 +51,41 @@ async def generate_responses(request: Request):
     # Log that a request was made, but NOT the opinion text (privacy)
     logger.info("Generating responses for an opinion")
 
+    RESPONSE_TOOL = {
+        "name": "submit_responses",
+        "description": "Submit the 5 generated responses to the user's opinion",
+        "input_schema": {
+            "type": "object",
+            "required": ["responses"],
+            "properties": {
+                "responses": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["label", "text"],
+                        "properties": {
+                            "label": {"type": "string"},
+                            "text": {"type": "string"},
+                        },
+                    },
+                    "minItems": 5,
+                    "maxItems": 5,
+                }
+            },
+        },
+    }
+
     prompt = f"""The user has shared this opinion: "{opinion}"
 
-Generate exactly 5 responses to this opinion, each with a different tone. Return ONLY valid JSON — no markdown, no code fences, no extra text. The JSON must be an array of 5 objects, each with "label" and "text" fields.
+Generate exactly 5 responses to this opinion using the submit_responses tool. Each response should have a different tone:
 
-The 5 tones, in this exact order:
-1. "Full agreement" — enthusiastic, total agreement with the opinion
-2. "Mostly agree" — agrees but raises a small concern or caveat
-3. "Neutral" — acknowledges the point without taking a side
-4. "Gentle pushback" — respectful disagreement that acknowledges merit but offers a counterpoint
-5. "Firm disagreement" — direct, matter-of-fact disagreement (not rude, but no sugarcoating)
+1. label "Full agreement" — enthusiastic, total agreement
+2. label "Mostly agree" — agrees but raises a small concern
+3. label "Neutral" — acknowledges the point without taking a side
+4. label "Gentle pushback" — respectful disagreement that acknowledges merit
+5. label "Firm disagreement" — direct, matter-of-fact disagreement (not rude)
 
-Each response should be 1-3 sentences. Make them feel natural and conversational, not robotic."""
+Each response text should be 1-3 sentences, natural and conversational."""
 
     try:
         client = get_client()
@@ -70,29 +93,23 @@ Each response should be 1-3 sentences. Make them feel natural and conversational
             model="claude-sonnet-4-20250514",
             max_tokens=1024,
             messages=[{"role": "user", "content": prompt}],
+            tools=[RESPONSE_TOOL],
+            tool_choice={"type": "tool", "name": "submit_responses"},
         )
     except Exception as e:
         logger.error(f"Anthropic API error: {type(e).__name__}: {e}")
         return JSONResponse({"error": "AI service unavailable"}, status_code=503)
 
-    try:
-        responses = json.loads(message.content[0].text)
-    except json.JSONDecodeError:
-        text = message.content[0].text
-        start = text.find("[")
-        end = text.rfind("]") + 1
-        if start >= 0 and end > start:
-            try:
-                responses = json.loads(text[start:end])
-            except json.JSONDecodeError:
-                logger.error("Failed to parse AI response after fallback extraction")
-                return JSONResponse({"error": "Failed to parse AI response"}, status_code=500)
-        else:
-            logger.error("Failed to parse AI response — no JSON array found")
-            return JSONResponse({"error": "Failed to parse AI response"}, status_code=500)
+    # Extract tool use result — guaranteed structured JSON
+    for block in message.content:
+        if block.type == "tool_use" and block.name == "submit_responses":
+            responses = block.input.get("responses", [])
+            if len(responses) == 5:
+                logger.info("Responses generated successfully via tool use")
+                return {"responses": responses}
 
-    logger.info("Responses generated successfully")
-    return {"responses": responses}
+    logger.error("No valid tool use response found")
+    return JSONResponse({"error": "Failed to generate responses"}, status_code=500)
 
 
 SCORING_METHOD = """Each of 5 opinions gets a response choice scored as:
