@@ -104,7 +104,7 @@ async def generate_pair(request: Request):
     try:
         client = get_client()
         message = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-opus-4-20250514",
             max_tokens=512,
             messages=[{"role": "user", "content": prompt}],
             tools=[PAIR_TOOL],
