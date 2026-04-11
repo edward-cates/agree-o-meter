@@ -125,6 +125,7 @@ async function sendMessage() {
   if (!text || !chatActive) return;
 
   input.value = '';
+  input.style.height = 'auto';
   input.disabled = true;
   document.getElementById('send-btn').disabled = true;
 

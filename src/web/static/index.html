@@ -78,13 +78,14 @@
       </div>
 
       <!-- Input -->
-      <div class="fixed bottom-0 left-0 right-0 bg-gray-950 border-t border-gray-800 p-3">
-        <div class="mx-auto flex gap-2" style="max-width:32rem">
-          <input id="chat-input" type="text" placeholder="Type a message..."
+      <div class="fixed bottom-0 left-0 right-0 bg-gray-950 border-t border-gray-800 p-3 pb-4">
+        <div class="mx-auto flex gap-2 items-end" style="max-width:32rem">
+          <textarea id="chat-input" rows="1" placeholder="Type a message..."
             onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage()}"
-            style="flex:1; min-width:0; font-size:16px; padding:0.75rem; background:#111827; border:1px solid #1f2937; border-radius:0.75rem; color:#f3f4f6; outline:none; font-family:inherit" />
+            oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"
+            style="flex:1; min-width:0; font-size:16px; padding:0.75rem; background:#111827; border:1px solid #1f2937; border-radius:0.75rem; color:#f3f4f6; outline:none; font-family:inherit; resize:none; max-height:120px; overflow-y:auto; line-height:1.4"></textarea>
           <button id="send-btn" onclick="sendMessage()"
-            class="px-4 py-2 bg-brand text-white font-semibold rounded-xl disabled:opacity-30"
+            class="px-4 py-2.5 bg-brand text-white font-semibold rounded-xl disabled:opacity-30 shrink-0"
             disabled>Send</button>
         </div>
       </div>
