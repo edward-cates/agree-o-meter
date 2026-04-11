@@ -103,6 +103,10 @@ async def chat(request: Request):
 
     logger.info(f"Chat turn {turn_number}, pushback={pushback_level}")
 
+    # First turn: AI starts the conversation. API requires at least one message.
+    if not messages:
+        messages = [{"role": "user", "content": "Hi, I'm ready to chat."}]
+
     system = build_system_prompt(pushback_level, turn_number, MAX_TURNS)
 
     try:
