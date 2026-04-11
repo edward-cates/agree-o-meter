@@ -26,26 +26,18 @@ def get_client():
 STATIC_DIR = Path(__file__).parent / "web" / "static"
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-MAX_TURNS = 7
+MAX_TURNS = 5
 
 RESPOND_TOOL = {
     "name": "respond",
-    "description": "Send a response and assess the user's engagement with the gap you surfaced",
+    "description": "Send a response to the user",
     "input_schema": {
         "type": "object",
-        "required": ["message", "gap_surfaced", "user_was_thoughtful"],
+        "required": ["message"],
         "properties": {
             "message": {
                 "type": "string",
-                "description": "Your response to the user. Keep it conversational and natural. 2-3 sentences max.",
-            },
-            "gap_surfaced": {
-                "type": "boolean",
-                "description": "True if your PREVIOUS message surfaced a gap or blind spot in their thinking. False on turn 1 (no previous message) and if your previous message was just building rapport.",
-            },
-            "user_was_thoughtful": {
-                "type": "boolean",
-                "description": "Only matters when gap_surfaced is true. Did the user engage thoughtfully with the gap? Thoughtful = they actually considered it, elaborated, pushed back with reasoning, or integrated it into their thinking. Not thoughtful = they brushed past it, gave a short dismissive answer, changed subject, or just said 'yeah maybe' without processing it.",
+                "description": "Your response to the user. 2-3 sentences max. MUST end with something that invites a reply (except on the final turn).",
             },
         },
     },
@@ -61,18 +53,53 @@ SYSTEM_PROMPT = (
     "that lives underneath what they care about. The question they probably do not ask themselves.\n\n"
     "RULES:\n"
     "- On turn 1, say EXACTLY: 'What is something you care a lot about?'\n"
-    "- On turn 2, engage warmly. Show genuine interest. Ask them to tell you more about why it matters to them.\n"
-    "- On turn 3, surface your first gap — something they might not be seeing about themselves in relation to this thing they care about.\n"
-    "- On turns 4-6, go deeper. Each turn: acknowledge what they said, then surface a new gap or push further into an existing one. Get closer to the identity question underneath.\n"
-    "- On turn 7, give a genuine closing thought. Reflect back something real you noticed.\n"
+    "- On turn 2, engage warmly. Show genuine interest. Then surface your first gap.\n"
+    "- On turns 3-4, go deeper. Acknowledge what they said, then surface a new gap or push further. Get closer to the identity question underneath.\n"
+    "- On turn 5, give a genuine closing thought. Reflect back something real you noticed about them.\n"
     "- Keep responses to 2-3 sentences. Short and natural.\n"
-    "- EVERY response before turn 7 MUST end with something that invites a reply.\n"
+    "- EVERY response on turns 1-4 MUST end with a question or something that invites a reply. NO DEAD ENDS.\n"
     "- Sound like a real person. No bullet points. No 'That is interesting!' No 'I appreciate you sharing.'\n"
     "- You can be warm AND surface gaps. They are not opposites.\n"
     "- Gaps should be genuinely insightful, not nitpicks or cliches. Go for the thing that would make them pause.\n"
     "- NEVER mention that you are measuring anything or assessing their responses.\n"
     "- You MUST use the respond tool for every message.\n"
 )
+
+# Rubric-based scoring tool — used in a separate call after the conversation
+SCORE_TOOL = {
+    "name": "score_conversation",
+    "description": "Score the conversation using the rubric",
+    "input_schema": {
+        "type": "object",
+        "required": ["acknowledged_gaps", "elaborated", "shared_vulnerability", "integrated_feedback", "overall_engagement", "reasoning"],
+        "properties": {
+            "acknowledged_gaps": {
+                "type": "integer", "minimum": 0, "maximum": 10,
+                "description": "0-10: When the AI surfaced a gap or blind spot, did the user acknowledge it? 0 = ignored every gap, 10 = acknowledged and sat with every one.",
+            },
+            "elaborated": {
+                "type": "integer", "minimum": 0, "maximum": 10,
+                "description": "0-10: Did the user elaborate on their thinking when challenged? 0 = only gave short/dismissive answers, 10 = gave detailed, thoughtful responses throughout.",
+            },
+            "shared_vulnerability": {
+                "type": "integer", "minimum": 0, "maximum": 10,
+                "description": "0-10: Did the user share something genuinely personal or vulnerable? 0 = stayed completely surface-level, 10 = deeply honest and open.",
+            },
+            "integrated_feedback": {
+                "type": "integer", "minimum": 0, "maximum": 10,
+                "description": "0-10: Did the user integrate the gaps into their thinking? 0 = defended their position without budging, 10 = visibly shifted or deepened their perspective.",
+            },
+            "overall_engagement": {
+                "type": "integer", "minimum": 0, "maximum": 10,
+                "description": "0-10: Overall, how thoughtfully did the user engage with the uncomfortable questions? 0 = completely disengaged, 10 = fully present and reflective.",
+            },
+            "reasoning": {
+                "type": "string",
+                "description": "1-2 sentence explanation of the score. What stood out about how this person engaged?",
+            },
+        },
+    },
+}
 
 
 @app.on_event("startup")
@@ -118,61 +145,87 @@ async def chat(request: Request):
     for block in response.content:
         if block.type == "tool_use" and block.name == "respond":
             msg = block.input.get("message", "")
-            gap_surfaced = block.input.get("gap_surfaced", False)
-            user_was_thoughtful = block.input.get("user_was_thoughtful", False)
             is_final = turn_number >= MAX_TURNS
-
-            logger.info(f"Turn {turn_number}: gap={gap_surfaced}, thoughtful={user_was_thoughtful}, final={is_final}")
-
-            return {
-                "message": msg,
-                "gap_surfaced": gap_surfaced,
-                "user_was_thoughtful": user_was_thoughtful,
-                "is_final": is_final,
-            }
+            logger.info(f"Turn {turn_number}: final={is_final}")
+            return {"message": msg, "is_final": is_final}
 
     logger.error("No valid tool use response")
     return JSONResponse({"error": "Failed to generate response"}, status_code=500)
 
 
-SCORING_METHOD = (
-    "7-turn conversation about a strongly held opinion.\n"
-    "AI surfaces gaps in the user's thinking each turn.\n"
-    "Each gap-turn scored binary: did the user engage thoughtfully (yes/no)?\n"
-    "Thoughtful = considered it, elaborated, pushed back with reasoning, integrated it.\n"
-    "Not thoughtful = brushed past, short dismissal, topic change, empty agreement.\n"
-    "Final score = (thoughtful responses / total gaps surfaced) * 10.\n"
-    "Higher = more willing to engage with blind spots in their thinking."
-)
-
-
 @app.post("/api/submit-score")
 async def submit_score(request: Request):
     body = await request.json()
-    turn_data = body.get("turn_data", [])
+    transcript = body.get("transcript", [])
 
-    if not turn_data:
-        return JSONResponse({"error": "No turn data"}, status_code=400)
+    if not transcript:
+        return JSONResponse({"error": "No transcript"}, status_code=400)
 
-    gaps = [t for t in turn_data if t.get("gap_surfaced")]
-    if not gaps:
-        score = 5.0  # neutral if no gaps were surfaced
-    else:
-        thoughtful_count = sum(1 for t in gaps if t.get("user_was_thoughtful"))
-        score = round((thoughtful_count / len(gaps)) * 10, 2)
+    # Build a readable transcript for the scoring AI
+    transcript_text = ""
+    for msg in transcript:
+        role = "User" if msg.get("role") == "user" else "AI"
+        transcript_text += f"{role}: {msg.get('content', '')}\n\n"
+
+    scoring_prompt = (
+        "You just observed a conversation between an AI and a user. "
+        "The AI was tasked with finding gaps in the user's thinking about something they care about. "
+        "Your job is to score how thoughtfully the user engaged with those gaps.\n\n"
+        "Use the score_conversation tool to provide scores on each dimension of the rubric.\n\n"
+        "TRANSCRIPT:\n" + transcript_text
+    )
 
     try:
-        save_score(score, SCORING_METHOD)
-        logger.info(f"Score saved: {score} ({len(gaps)} gaps, {sum(1 for t in gaps if t.get('user_was_thoughtful'))} thoughtful)")
+        client = get_client()
+        response = client.messages.create(
+            model="claude-opus-4-20250514",
+            max_tokens=512,
+            messages=[{"role": "user", "content": scoring_prompt}],
+            tools=[SCORE_TOOL],
+            tool_choice={"type": "tool", "name": "score_conversation"},
+        )
     except Exception as e:
-        logger.error(f"DB error: {type(e).__name__}: {e}")
-        return JSONResponse({"error": "Failed to save score"}, status_code=500)
+        logger.error(f"Scoring API error: {type(e).__name__}: {e}")
+        return JSONResponse({"error": "Scoring failed"}, status_code=503)
 
-    return {
-        "score": score,
-        "all_scores": get_all_scores(),
-        "scoring_method": SCORING_METHOD,
-    }
+    for block in response.content:
+        if block.type == "tool_use" and block.name == "score_conversation":
+            scores = block.input
+            # Average the 5 dimensions
+            dimensions = ["acknowledged_gaps", "elaborated", "shared_vulnerability", "integrated_feedback", "overall_engagement"]
+            avg = sum(scores.get(d, 5) for d in dimensions) / len(dimensions)
+            final_score = round(avg, 2)
+            reasoning = scores.get("reasoning", "")
+
+            logger.info(f"Rubric scores: {json.dumps({d: scores.get(d) for d in dimensions})}, final={final_score}")
+
+            try:
+                scoring_method = (
+                    "Rubric-based scoring across 5 dimensions (each 0-10):\n"
+                    f"- Acknowledged gaps: {scores.get('acknowledged_gaps')}\n"
+                    f"- Elaborated on thinking: {scores.get('elaborated')}\n"
+                    f"- Shared vulnerability: {scores.get('shared_vulnerability')}\n"
+                    f"- Integrated feedback: {scores.get('integrated_feedback')}\n"
+                    f"- Overall engagement: {scores.get('overall_engagement')}\n"
+                    f"Final score = average = {final_score}\n\n"
+                    f"{reasoning}"
+                )
+                save_score(final_score, scoring_method)
+                logger.info(f"Score saved: {final_score}")
+            except Exception as e:
+                logger.error(f"DB error: {type(e).__name__}: {e}")
+                return JSONResponse({"error": "Failed to save score"}, status_code=500)
+
+            return {
+                "score": final_score,
+                "rubric": {d: scores.get(d) for d in dimensions},
+                "reasoning": reasoning,
+                "all_scores": get_all_scores(),
+                "scoring_method": scoring_method,
+            }
+
+    logger.error("No valid scoring response")
+    return JSONResponse({"error": "Scoring failed"}, status_code=500)
 
 
 @app.get("/api/scores")

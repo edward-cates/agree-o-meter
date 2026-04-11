@@ -154,12 +154,6 @@ async function sendToAI() {
       return;
     }
 
-    // Record turn data
-    turnData.push({
-      gap_surfaced: data.gap_surfaced,
-      user_was_thoughtful: data.user_was_thoughtful,
-    });
-
     // Show AI message
     addMessage('assistant', data.message);
     messages.push({ role: 'assistant', content: data.message });
@@ -206,17 +200,18 @@ document.addEventListener('DOMContentLoaded', () => {
 // Results
 async function showResults() {
   showScreen('results');
+  document.getElementById('score-description').textContent = 'Analyzing your conversation...';
 
   try {
     const res = await fetch('/api/submit-score', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ turn_data: turnData }),
+      body: JSON.stringify({ transcript: messages }),
     });
     const data = await res.json();
 
     animateNumber(document.getElementById('score-number'), data.score);
-    document.getElementById('score-description').textContent = getScoreDescription(data.score);
+    document.getElementById('score-description').textContent = data.reasoning || getScoreDescription(data.score);
     setTimeout(() => drawHistogram('results-canvas', data.all_scores, data.score), 100);
     document.getElementById('scoring-method').textContent = data.scoring_method;
   } catch {
