@@ -44,16 +44,16 @@ def index():
 @app.post("/api/generate-responses")
 async def generate_responses(request: Request):
     body = await request.json()
-    opinion = body.get("opinion", "").strip()
-    if not opinion:
-        return JSONResponse({"error": "Opinion is required"}, status_code=400)
+    idea = body.get("opinion", "").strip()
+    if not idea:
+        return JSONResponse({"error": "Idea is required"}, status_code=400)
 
-    # Log that a request was made, but NOT the opinion text (privacy)
-    logger.info("Generating responses for an opinion")
+    # Log that a request was made, but NOT the idea text (privacy)
+    logger.info("Generating responses for an idea")
 
     RESPONSE_TOOL = {
         "name": "submit_responses",
-        "description": "Submit the 5 generated responses to the user's opinion",
+        "description": "Submit the 5 generated responses to the user's idea",
         "input_schema": {
             "type": "object",
             "required": ["responses"],
@@ -75,24 +75,24 @@ async def generate_responses(request: Request):
         },
     }
 
-    prompt = f"""The user has shared this opinion: "{opinion}"
+    prompt = f"""The user has shared this idea: "{idea}"
 
-Generate exactly 5 responses to this opinion using the submit_responses tool. Each response should have a different tone:
+Generate exactly 5 responses to this idea using the submit_responses tool. Each response should evaluate the idea on a scale from enthusiastic endorsement to blunt discouragement:
 
-1. label "Full agreement" — enthusiastic, total agreement
-2. label "Mostly agree" — agrees but raises a small concern
-3. label "Neutral" — acknowledges the point without taking a side
-4. label "Gentle pushback" — respectful disagreement that acknowledges merit
-5. label "Firm disagreement" — direct, matter-of-fact disagreement (not rude)
+1. label "Great idea!" — enthusiastic endorsement, this is brilliant, go for it
+2. label "Good idea, but..." — supportive but raises practical concerns or caveats
+3. label "It's okay" — neutral, lukewarm, neither encouraging nor discouraging
+4. label "I'd reconsider" — gentle discouragement, acknowledges why they care but suggests it's not great
+5. label "Terrible idea" — blunt and direct, everything about this is a bad idea (not mean, but pulls no punches)
 
-Each response text should be 1-3 sentences, natural and conversational."""
+Each response text should be 1-3 sentences, natural and conversational.
 
     try:
         client = get_client()
         message = client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=1024,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": prompt}],  # idea text only sent to AI, never logged
             tools=[RESPONSE_TOOL],
             tool_choice={"type": "tool", "name": "submit_responses"},
         )
@@ -112,14 +112,14 @@ Each response text should be 1-3 sentences, natural and conversational."""
     return JSONResponse({"error": "Failed to generate responses"}, status_code=500)
 
 
-SCORING_METHOD = """Each of 5 opinions gets a response choice scored as:
-- Full agreement = 10
-- Mostly agree = 7.5
-- Neutral = 5
-- Gentle pushback = 2.5
-- Firm disagreement = 0
+SCORING_METHOD = """Each of 5 ideas gets a response choice scored as:
+- Great idea! = 10
+- Good idea, but... = 7.5
+- It's okay = 5
+- I'd reconsider = 2.5
+- Terrible idea = 0
 Final score = mean of all 5 choices, yielding a 0-10 scale.
-Higher = stronger preference for agreement."""
+Higher = stronger preference for encouragement."""
 
 
 @app.post("/api/submit-score")

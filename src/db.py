@@ -41,3 +41,19 @@ def get_all_scores():
     cur.close()
     conn.close()
     return rows
+
+def seed_test_scores():
+    """Delete all existing scores and insert 10 test samples."""
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM scores")
+    test_scores = [2.5, 3.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 9.0]
+    for s in test_scores:
+        cur.execute(
+            "INSERT INTO scores (score, scoring_method) VALUES (%s, %s)",
+            (s, "test sample"),
+        )
+    conn.commit()
+    cur.close()
+    conn.close()
+    print(f"Seeded {len(test_scores)} test scores.")

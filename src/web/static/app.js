@@ -62,9 +62,16 @@ async function loadScores() {
     const res = await fetch('/api/scores');
     const data = await res.json();
     const scores = data.scores || [];
-    document.getElementById('score-count').textContent = scores.length;
+    const emptyEl = document.getElementById('landing-empty');
+    if (scores.length === 0) {
+      emptyEl.style.display = 'flex';
+    } else {
+      emptyEl.style.display = 'none';
+      drawHistogram('landing-canvas', scores);
+    }
   } catch {
-    document.getElementById('score-count').textContent = '—';
+    const emptyEl = document.getElementById('landing-empty');
+    if (emptyEl) { emptyEl.style.display = 'flex'; emptyEl.textContent = "Couldn't load scores"; }
   }
 }
 
@@ -82,7 +89,7 @@ function buildOpinionInputs() {
     row.className = 'flex items-center gap-2';
     row.innerHTML = `
       <span class="text-xs font-bold text-brand shrink-0" style="width:1.25rem; text-align:center">${i + 1}</span>
-      <input type="text" placeholder="Type an opinion…" maxlength="300" data-idx="${i}"
+      <input type="text" placeholder="Type an idea…" maxlength="300" data-idx="${i}"
         style="flex:1; min-width:0; font-size:16px; padding:0.625rem 0.75rem; background:#111827; border:1px solid #1f2937; border-radius:0.5rem; color:#f3f4f6; outline:none" />
     `;
     container.appendChild(row);
@@ -111,7 +118,7 @@ async function loadRound() {
   optionsEl.innerHTML = '';
   spinnerEl.classList.remove('hidden');
 
-  document.getElementById('round-label').textContent = `Opinion ${currentRound + 1} of 5`;
+  document.getElementById('round-label').textContent = `Idea ${currentRound + 1} of 5`;
   document.getElementById('current-opinion').textContent = `"${opinions[currentRound]}"`;
   document.getElementById('progress-fill').style.width = `${(currentRound / 5) * 100}%`;
 
@@ -173,11 +180,11 @@ function animateNumber(el, target) {
 }
 
 function getScoreDescription(s) {
-  if (s >= 9) return 'You strongly prefer when others agree with you.';
-  if (s >= 7) return 'You lean toward agreement but can handle some pushback.';
-  if (s >= 5) return "You're balanced — you appreciate both agreement and honesty.";
-  if (s >= 3) return 'You prefer people to push back and challenge your ideas.';
-  return 'You strongly prefer direct, unfiltered disagreement.';
+  if (s >= 9) return 'You strongly prefer encouragement — you want to hear your ideas are great.';
+  if (s >= 7) return 'You lean toward encouragement but can handle some honest feedback.';
+  if (s >= 5) return "You're balanced — you appreciate both support and honest pushback.";
+  if (s >= 3) return 'You prefer honest feedback over encouragement, even if it stings.';
+  return 'You strongly prefer blunt honesty — tell it like it is, no sugarcoating.';
 }
 
 function resetQuiz() {
