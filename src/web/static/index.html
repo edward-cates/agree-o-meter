@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agree-O-Meter</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- LANDING -->
+    <section id="landing" class="screen active">
+      <div class="container">
+        <h1>Agree-O-Meter</h1>
+        <p class="subtitle">How much do you prefer people to agree with you?</p>
+
+        <div class="privacy-card">
+          <div class="privacy-icon">&#128274;</div>
+          <h2>Your privacy is absolute</h2>
+          <ul>
+            <li>We save <strong>zero</strong> text you type — none of your opinions leave your browser permanently.</li>
+            <li>The <strong>only</strong> thing stored is a single number: your score from 0–10.</li>
+            <li>That score is <strong>completely anonymous</strong> — no cookies, no accounts, no way to link it back to you.</li>
+            <li>AI processes your opinions in real-time to generate responses, then they're gone.</li>
+          </ul>
+        </div>
+
+        <div class="distribution-section">
+          <h3>Score distribution so far</h3>
+          <div id="landing-chart" class="chart-container">
+            <canvas id="landing-canvas"></canvas>
+            <p id="landing-empty" class="chart-empty" style="display:none;">No scores yet — be the first!</p>
+          </div>
+        </div>
+
+        <button class="btn-primary" onclick="startQuiz()">Take the Quiz</button>
+      </div>
+    </section>
+
+    <!-- OPINION INPUT -->
+    <section id="opinions" class="screen">
+      <div class="container">
+        <h2>Share 5 opinions</h2>
+        <p class="hint">Type any opinion, hot take, or belief you hold. It can be about anything — food, politics, life advice, whatever.</p>
+        <div id="opinion-inputs"></div>
+        <button class="btn-primary" id="begin-btn" onclick="beginQuiz()" disabled>Begin</button>
+      </div>
+    </section>
+
+    <!-- QUIZ ROUND -->
+    <section id="quiz" class="screen">
+      <div class="container">
+        <div class="progress-bar">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <p class="round-label" id="round-label">Opinion 1 of 5</p>
+        <blockquote id="current-opinion"></blockquote>
+        <p class="prompt-text">Which response do you prefer?</p>
+        <div id="response-options" class="options"></div>
+        <div id="loading-spinner" class="spinner" style="display:none;">
+          <div class="spinner-dot"></div>
+          <p>AI is crafting responses…</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- RESULTS -->
+    <section id="results" class="screen">
+      <div class="container">
+        <h2>Your Score</h2>
+        <div class="score-display">
+          <span id="score-number">0</span>
+          <span class="score-max">/ 10</span>
+        </div>
+        <p id="score-description" class="score-desc"></p>
+
+        <div class="distribution-section">
+          <h3>Where you fall</h3>
+          <div class="chart-container">
+            <canvas id="results-canvas"></canvas>
+          </div>
+        </div>
+
+        <details class="scoring-details">
+          <summary>How scoring works</summary>
+          <pre id="scoring-method"></pre>
+        </details>
+
+        <button class="btn-primary" onclick="resetQuiz()">Take it again</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
