@@ -33,11 +33,15 @@ RESPOND_TOOL = {
     "description": "Send a response to the user",
     "input_schema": {
         "type": "object",
-        "required": ["message"],
+        "required": ["message", "ready_to_wrap_up"],
         "properties": {
             "message": {
                 "type": "string",
-                "description": "Your response to the user. 2-3 sentences max. MUST end with something that invites a reply (except on the final turn).",
+                "description": "Your response to the user. 1-2 sentences plus a question. MUST end with a question unless wrapping up.",
+            },
+            "ready_to_wrap_up": {
+                "type": "boolean",
+                "description": "True if you feel you have explored deeply enough and the conversation has reached a natural stopping point. Do not rush — most conversations need at least 6-7 turns. But if the user has been deeply vulnerable and you have asked the hard question, you can wrap up early.",
             },
         },
     },
@@ -51,12 +55,13 @@ SYSTEM_PROMPT = (
     "The person will tell you what they care about. Through careful questioning, guide them toward the uncomfortable "
     "question that lives underneath — the one they probably do not ask themselves. But let them arrive there "
     "naturally, do not push them there with assumptions.\n\n"
-    "CONVERSATION FLOW:\n"
+    "CONVERSATION FLOW (up to 10 turns max, but end naturally when ready):\n"
     "- Turn 1: Say EXACTLY: 'What is something you care a lot about?'\n"
-    "- Turns 2-3: Be warm. Be curious. Ask open-ended follow-up questions. Let them talk and reveal what matters.\n"
-    "- Turns 4-6: Start asking slightly harder questions based on what THEY have said. Not assumptions — reflect their own words back and ask about the tensions you notice.\n"
-    "- Turns 7-9: Go deeper. By now you know them well enough to ask the real question. The one that might make them pause.\n"
-    "- Turn 10: Wrap up warmly. Reflect back something genuine you noticed.\n\n"
+    "- Turns 2-3: Be warm. Be curious. Ask open-ended follow-up questions. Let them talk.\n"
+    "- Turns 4-6: Start asking harder questions based on what THEY have said. Reflect their own words back.\n"
+    "- Turns 7+: If the conversation has gone deep enough, wrap up warmly. If not, keep going until turn 10 max.\n"
+    "- When wrapping up: Reflect back something genuine you noticed. No question needed.\n"
+    "- Set ready_to_wrap_up to true when you feel the conversation has reached its natural depth. Most conversations need 6-8 turns.\n\n"
     "CRITICAL RULES:\n"
     "- DO NOT make assumptions or project. Ask, do not assert.\n"
     "- DO NOT surface gaps as statements. Surface them as genuine questions.\n"
@@ -148,8 +153,9 @@ async def chat(request: Request):
     for block in response.content:
         if block.type == "tool_use" and block.name == "respond":
             msg = block.input.get("message", "")
-            is_final = turn_number >= MAX_TURNS
-            logger.info(f"Turn {turn_number}: final={is_final}")
+            ready = block.input.get("ready_to_wrap_up", False)
+            is_final = turn_number >= MAX_TURNS or (ready and turn_number >= 5)
+            logger.info(f"Turn {turn_number}: ready={ready}, final={is_final}")
             return {"message": msg, "is_final": is_final}
 
     logger.error("No valid tool use response")
