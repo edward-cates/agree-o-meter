@@ -1,8 +1,7 @@
 // State
 let messages = []; // {role, content} for API
-let pushbackLevel = 5;
 let turnNumber = 0;
-let turnData = []; // {pushback, signal}
+let turnData = []; // {gap_surfaced, user_was_thoughtful}
 let chatActive = false;
 
 function showScreen(id) {
@@ -70,7 +69,6 @@ async function loadScores() {
 // Chat
 function startChat() {
   messages = [];
-  pushbackLevel = 5;
   turnNumber = 0;
   turnData = [];
   chatActive = true;
@@ -145,7 +143,6 @@ async function sendToAI() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         messages,
-        pushback_level: pushbackLevel,
         turn_number: turnNumber,
       }),
     });
@@ -159,12 +156,9 @@ async function sendToAI() {
 
     // Record turn data
     turnData.push({
-      pushback: pushbackLevel,
-      signal: data.user_signal,
+      gap_surfaced: data.gap_surfaced,
+      user_was_thoughtful: data.user_was_thoughtful,
     });
-
-    // Update pushback for next turn
-    pushbackLevel = data.next_pushback;
 
     // Show AI message
     addMessage('assistant', data.message);
@@ -240,16 +234,15 @@ function animateNumber(el, target) {
 }
 
 function getScoreDescription(s) {
-  if (s >= 8) return 'The conversation naturally moved toward directness and honesty. You pulled for truth.';
-  if (s >= 6) return 'You leaned toward honest engagement. You were comfortable with pushback.';
-  if (s >= 4) return 'You landed in the middle. The conversation stayed balanced between comfort and challenge.';
-  if (s >= 2) return 'You leaned toward comfort. The conversation naturally softened as it went on.';
-  return 'The conversation moved toward warmth and validation. You pulled for comfort.';
+  if (s >= 8) return 'You consistently engaged with the gaps in your thinking. You leaned into the uncomfortable questions.';
+  if (s >= 6) return 'You engaged with most of the blind spots that came up. You are generally open to examining your assumptions.';
+  if (s >= 4) return 'Mixed — you engaged with some gaps but brushed past others.';
+  if (s >= 2) return 'You tended to move past the gaps rather than sit with them.';
+  return 'You mostly brushed past the blind spots. The uncomfortable angles did not get much airtime.';
 }
 
 function resetAll() {
   messages = [];
-  pushbackLevel = 5;
   turnNumber = 0;
   turnData = [];
   chatActive = false;

@@ -26,6 +26,50 @@ def get_client():
 STATIC_DIR = Path(__file__).parent / "web" / "static"
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
+MAX_TURNS = 7
+
+RESPOND_TOOL = {
+    "name": "respond",
+    "description": "Send a response and assess the user's engagement with the gap you surfaced",
+    "input_schema": {
+        "type": "object",
+        "required": ["message", "gap_surfaced", "user_was_thoughtful"],
+        "properties": {
+            "message": {
+                "type": "string",
+                "description": "Your response to the user. Keep it conversational and natural. 2-3 sentences max.",
+            },
+            "gap_surfaced": {
+                "type": "boolean",
+                "description": "True if your PREVIOUS message surfaced a gap or blind spot in their thinking. False on turn 1 (no previous message) and if your previous message was just building rapport.",
+            },
+            "user_was_thoughtful": {
+                "type": "boolean",
+                "description": "Only matters when gap_surfaced is true. Did the user engage thoughtfully with the gap? Thoughtful = they actually considered it, elaborated, pushed back with reasoning, or integrated it into their thinking. Not thoughtful = they brushed past it, gave a short dismissive answer, changed subject, or just said 'yeah maybe' without processing it.",
+            },
+        },
+    },
+}
+
+SYSTEM_PROMPT = (
+    "You are having a real conversation with someone about an opinion they hold strongly. "
+    "You are a curious, smart friend — not an assistant, not a therapist, not a debate opponent.\n\n"
+    "YOUR JOB: Find the gaps in their thinking. Not argue, not agree — just name what they might be missing. "
+    "An unexplored angle, an assumption they have not examined, a consequence they have not considered.\n\n"
+    "RULES:\n"
+    "- On turn 1, say EXACTLY: 'What is an opinion you hold strongly that you think most people would push back on?'\n"
+    "- On turn 2, engage warmly with what they shared. Build rapport. Then surface your first gap.\n"
+    "- On turns 3-6, each response should: (1) acknowledge what they said, (2) surface a new gap or dig deeper into an existing one.\n"
+    "- On turn 7, give a genuine closing thought. Something like 'I enjoyed this. Here is what I will take away from this conversation.'\n"
+    "- Keep responses to 2-3 sentences. Short and natural.\n"
+    "- EVERY response before turn 7 MUST end with something that invites a reply.\n"
+    "- Sound like a real person. No bullet points. No 'Great question!' No 'I appreciate you sharing.'\n"
+    "- You can be warm AND surface gaps. They are not opposites. 'I totally get why you think that, and also — have you considered X?'\n"
+    "- Gaps should be genuinely interesting angles, not nitpicks or devil's advocate cliches.\n"
+    "- NEVER mention that you are measuring anything or assessing their responses.\n"
+    "- You MUST use the respond tool for every message.\n"
+)
+
 
 @app.on_event("startup")
 def startup():
@@ -40,84 +84,18 @@ def index():
     return FileResponse(STATIC_DIR / "index.html")
 
 
-RESPOND_TOOL = {
-    "name": "respond",
-    "description": "Send a response to the user and report conversation metrics",
-    "input_schema": {
-        "type": "object",
-        "required": ["message", "user_signal", "next_pushback"],
-        "properties": {
-            "message": {
-                "type": "string",
-                "description": "Your response to the user. Keep it conversational and natural.",
-            },
-            "user_signal": {
-                "type": "string",
-                "enum": ["positive", "neutral", "negative"],
-                "description": "Your read on how the user responded to the current pushback level. positive = they engaged well, leaned in, elaborated. neutral = they responded but didn't strongly engage or disengage. negative = they got defensive, changed subject, gave short answers, or seemed uncomfortable.",
-            },
-            "next_pushback": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 10,
-                "description": "The pushback level to use next turn. Adjust by 1-2 based on user_signal. If positive, nudge up. If negative, nudge down. If neutral, stay or nudge slightly.",
-            },
-        },
-    },
-}
-
-
-def build_system_prompt(pushback_level, turn_number, max_turns):
-    return (
-        "You are a friend having a real conversation. You have your own opinions and you share them honestly.\n\n"
-        "You are NOT an assistant. You are NOT helpful. You are a person with views who engages authentically.\n\n"
-        f"CURRENT PUSHBACK LEVEL: {pushback_level}/10\n"
-        f"TURN: {turn_number}/{max_turns}\n\n"
-        "The pushback level controls how much you VALIDATE vs how much you CHALLENGE.\n"
-        "IMPORTANT: Higher pushback does NOT mean being antagonistic or contrarian. It means being MORE HONEST and LESS FILTERED. If their idea is genuinely good, you can say so even at high pushback — but you also name the risks, the hard parts, what could go wrong. Truth and positivity can coexist.\n\n"
-        "- Level 0-2: Pure encouragement. You focus on what is exciting about their idea. You build on it.\n"
-        "  Example: 'Oh I love that. That could actually work really well.'\n\n"
-        "- Level 3-4: Supportive but you name one real concern. You are on their side but honest.\n"
-        "  Example: 'I like where your head is at. The one thing I would think about is...'\n\n"
-        "- Level 5: Genuine engagement. You share what you actually think — good and bad.\n"
-        "  Example: 'Honestly the core idea is solid but the execution seems really hard.'\n\n"
-        "- Level 6-7: You lead with the hard truth. You respect them enough to not sugarcoat.\n"
-        "  Example: 'I think you are underestimating how hard X is going to be. Have you actually talked to anyone who has done this?'\n\n"
-        "- Level 8-10: Unfiltered honesty. You say the thing nobody else would say. Still caring, but zero softening.\n"
-        "  Example: 'Real talk — I think this is solving a problem nobody actually has. What makes you so sure people want this?'\n\n"
-        "CRITICAL RULES:\n"
-        "- On turn 1, say EXACTLY: 'So what is a crazy idea you have that you are actually pretty excited about?'\n"
-        "- Keep responses to 2-3 sentences. Short and punchy.\n"
-        "- EVERY response MUST end with something that invites a reply — a question, a provocative statement, or a challenge. NEVER leave a dead end.\n"
-        "- Sound like a real friend, NOT an AI. No bullet points. No 'That is interesting!' No 'I appreciate you sharing.'\n"
-        "- REACT first with your actual take, THEN ask or provoke.\n"
-        "- At higher pushback levels, you MUST actually disagree and state your opinion. Not just questions.\n"
-        "- The conversation should feel like a friend at a bar, not a therapy session.\n"
-        f"- On turn {max_turns}, give a final honest take and say something like 'alright, that was fun' to signal the end.\n"
-        "- You MUST use the respond tool for every message.\n"
-        "- user_signal assessment: positive = they elaborated, pushed back constructively, or got more engaged. neutral = they responded but stayed surface-level. negative = short answers, changed subject, or seemed to disengage.\n"
-        "- Adjust next_pushback by 1-2 based on signals.\n"
-        "- NEVER mention pushback, scoring, or measurement.\n"
-    )
-
-
-MAX_TURNS = 7
-
-
 @app.post("/api/chat")
 async def chat(request: Request):
     body = await request.json()
     messages = body.get("messages", [])
-    pushback_level = body.get("pushback_level", 5)
     turn_number = body.get("turn_number", 1)
 
-    logger.info(f"Chat turn {turn_number}, pushback={pushback_level}")
+    logger.info(f"Chat turn {turn_number}")
 
-    # First turn: AI starts the conversation. API requires at least one message.
     if not messages:
-        messages = [{"role": "user", "content": "Hi, I'm ready to chat."}]
+        messages = [{"role": "user", "content": "Hi, I am ready to chat."}]
 
-    system = build_system_prompt(pushback_level, turn_number, MAX_TURNS)
+    system = SYSTEM_PROMPT + f"\nCURRENT TURN: {turn_number}/{MAX_TURNS}\n"
 
     try:
         client = get_client()
@@ -136,23 +114,16 @@ async def chat(request: Request):
     for block in response.content:
         if block.type == "tool_use" and block.name == "respond":
             msg = block.input.get("message", "")
-            signal = block.input.get("user_signal", "neutral")
-            next_pb = block.input.get("next_pushback", pushback_level)
-
-            # Clamp adjustment to 2 points max
-            next_pb = max(0, min(10, next_pb))
-            diff = next_pb - pushback_level
-            if abs(diff) > 2:
-                next_pb = pushback_level + (2 if diff > 0 else -2)
-
+            gap_surfaced = block.input.get("gap_surfaced", False)
+            user_was_thoughtful = block.input.get("user_was_thoughtful", False)
             is_final = turn_number >= MAX_TURNS
 
-            logger.info(f"Turn {turn_number}: signal={signal}, pb={pushback_level}->{next_pb}, final={is_final}")
+            logger.info(f"Turn {turn_number}: gap={gap_surfaced}, thoughtful={user_was_thoughtful}, final={is_final}")
 
             return {
                 "message": msg,
-                "user_signal": signal,
-                "next_pushback": next_pb,
+                "gap_surfaced": gap_surfaced,
+                "user_was_thoughtful": user_was_thoughtful,
                 "is_final": is_final,
             }
 
@@ -161,12 +132,13 @@ async def chat(request: Request):
 
 
 SCORING_METHOD = (
-    "Adaptive conversation over 10 turns.\n"
-    "AI starts at pushback level 5 and adjusts based on user engagement signals.\n"
-    "Positive engagement with pushback nudges level up; negative nudges it down.\n"
-    "Final score = average pushback level across all turns, scaled to 0-10.\n"
-    "Higher score = user pulled the conversation toward more honesty/directness.\n"
-    "Lower score = user pulled the conversation toward more comfort/validation."
+    "7-turn conversation about a strongly held opinion.\n"
+    "AI surfaces gaps in the user's thinking each turn.\n"
+    "Each gap-turn scored binary: did the user engage thoughtfully (yes/no)?\n"
+    "Thoughtful = considered it, elaborated, pushed back with reasoning, integrated it.\n"
+    "Not thoughtful = brushed past, short dismissal, topic change, empty agreement.\n"
+    "Final score = (thoughtful responses / total gaps surfaced) * 10.\n"
+    "Higher = more willing to engage with blind spots in their thinking."
 )
 
 
@@ -178,13 +150,16 @@ async def submit_score(request: Request):
     if not turn_data:
         return JSONResponse({"error": "No turn data"}, status_code=400)
 
-    # Score = average pushback level across all turns
-    avg_pushback = sum(t.get("pushback", 5) for t in turn_data) / len(turn_data)
-    score = round(avg_pushback, 2)
+    gaps = [t for t in turn_data if t.get("gap_surfaced")]
+    if not gaps:
+        score = 5.0  # neutral if no gaps were surfaced
+    else:
+        thoughtful_count = sum(1 for t in gaps if t.get("user_was_thoughtful"))
+        score = round((thoughtful_count / len(gaps)) * 10, 2)
 
     try:
         save_score(score, SCORING_METHOD)
-        logger.info(f"Score saved: {score}")
+        logger.info(f"Score saved: {score} ({len(gaps)} gaps, {sum(1 for t in gaps if t.get('user_was_thoughtful'))} thoughtful)")
     except Exception as e:
         logger.error(f"DB error: {type(e).__name__}: {e}")
         return JSONResponse({"error": "Failed to save score"}, status_code=500)
