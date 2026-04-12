@@ -5,17 +5,8 @@ let turnData = []; // {gap_surfaced, user_was_thoughtful}
 let chatActive = false;
 
 function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => {
-    s.classList.add('hidden');
-    if (s.style.display) s.style.display = 'none';
-  });
-  const el = document.getElementById(id);
-  el.classList.remove('hidden');
-  if (id === 'chat') {
-    el.style.display = 'flex';
-  } else {
-    el.style.display = '';
-  }
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
   window.scrollTo(0, 0);
 }
 
@@ -259,34 +250,9 @@ function resetAll() {
   loadScores();
 }
 
-// Scroll chat to bottom helper
+// Scroll to bottom of page (chat messages are in normal flow now)
 function scrollChatToBottom() {
-  const container = document.getElementById('chat-messages');
-  if (container) setTimeout(() => { container.scrollTop = container.scrollHeight; }, 50);
+  setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 50);
 }
-
-// Resize chat container when mobile keyboard appears/disappears
-if (window.visualViewport) {
-  const resizeChat = () => {
-    const chat = document.getElementById('chat');
-    if (chat && chat.style.display === 'flex') {
-      chat.style.height = window.visualViewport.height + 'px';
-      chat.style.bottom = 'auto';
-      scrollChatToBottom();
-    }
-  };
-  window.visualViewport.addEventListener('resize', resizeChat);
-  window.visualViewport.addEventListener('scroll', resizeChat);
-}
-
-// Scroll to input on focus
-document.addEventListener('focusin', (e) => {
-  if (e.target && e.target.id === 'chat-input') {
-    setTimeout(() => {
-      e.target.scrollIntoView({ block: 'end', behavior: 'smooth' });
-      scrollChatToBottom();
-    }, 300);
-  }
-});
 
 loadScores();
