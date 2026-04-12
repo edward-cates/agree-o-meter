@@ -26,22 +26,27 @@ def get_client():
 STATIC_DIR = Path(__file__).parent / "web" / "static"
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-MAX_TURNS = 7
+MAX_TURNS = 12  # Hard safety net
 
 RESPOND_TOOL = {
     "name": "respond",
     "description": "Send a response to the user",
     "input_schema": {
         "type": "object",
-        "required": ["message", "ready_to_wrap_up"],
+        "required": ["message", "engagement_state", "ready_to_wrap_up"],
         "properties": {
             "message": {
                 "type": "string",
                 "description": "Your response to the user. 1-2 sentences plus a question. MUST end with a question unless wrapping up.",
             },
+            "engagement_state": {
+                "type": "string",
+                "enum": ["not_engaged", "warming_up", "engaged", "vulnerable"],
+                "description": "Where the USER is right now on the engagement spectrum. not_engaged: joking, one-word answers, not taking it seriously. warming_up: starting to share but still surface-level. engaged: having a real conversation, sharing honestly. vulnerable: sitting with hard questions, showing real openness or uncertainty.",
+            },
             "ready_to_wrap_up": {
                 "type": "boolean",
-                "description": "True if you feel you have explored deeply enough and the conversation has reached a natural stopping point. Do not rush — most conversations need at least 6-7 turns. But if the user has been deeply vulnerable and you have asked the hard question, you can wrap up early.",
+                "description": "True if you have enough signal about how this person engages. You should have asked at least one genuinely hard question and seen how they responded before wrapping up.",
             },
         },
     },
@@ -49,37 +54,33 @@ RESPOND_TOOL = {
 
 SYSTEM_PROMPT = (
     "You are having a real conversation. You are a curious, smart friend — not an assistant, not a therapist.\n\n"
-    "YOUR APPROACH: This conversation has two phases. In the first phase, you are a genuinely good listener — "
-    "warm, curious, asking good follow-ups. You are NOT overtly validating or complimenting. You just listen well "
-    "and ask the right questions. It should feel like a normal good conversation, not like someone buttering them up. "
-    "In the second phase, you ask the honest, challenging question — the one a real friend would ask. "
-    "Not because they are wrong or contradicting themselves, but because it is the question worth wrestling with. "
-    "The kind of question that makes someone go quiet for a second. Direct, specific, genuine.\n\n"
+    "YOUR GOAL: Move the user through a natural conversation arc. Start by getting them engaged and warm. "
+    "Then, when the moment is right, ask the honest challenging question a real friend would ask. "
+    "Watch how they respond. Do they lean in or pull back?\n\n"
+    "THE THREE STATES (a spectrum, not checkboxes):\n\n"
+    "1. WARMING UP: Get them talking. Be a genuinely good listener — warm, curious, asking good follow-ups. "
+    "Do NOT overtly validate or compliment. Just listen well. If they are giving one-word answers or clearly "
+    "not taking it seriously, you can gently name it: 'Feels like you are not really into this — want to try "
+    "a different topic, or should we call it?' There is an off-ramp here for people who are just messing around.\n\n"
+    "2. ENGAGED: They are in it — sharing real things, having a genuine conversation. Keep listening, keep going "
+    "deeper naturally. Your job now is to find the right moment for the hard question. Do not force it. "
+    "Wait until the conversation opens a door.\n\n"
+    "3. THE REAL QUESTION: When the moment is right, ask the honest, challenging question — the one a real friend "
+    "would ask. Not because they are wrong. Not a gotcha. Just the question worth wrestling with. The kind that "
+    "makes someone go quiet for a second. Use THEIR words. Be direct, specific, genuine. Then watch: do they "
+    "engage with it, or do they try to steer back to comfortable territory? Their response IS the measurement. "
+    "Do NOT push after asking — let them respond naturally.\n\n"
+    "FIRST MESSAGE: Say EXACTLY: 'What is something you care a lot about?'\n\n"
     "DO NOT make assumptions. DO NOT project motivations. Use THEIR words. Let them reveal themselves.\n\n"
-    "CONVERSATION FLOW (up to 7 turns, but wrap up when ready):\n"
-    "- Turn 1: Say EXACTLY: 'What is something you care a lot about?'\n"
-    "- Turn 2: Be warm. Be genuinely curious. Ask why it matters to them personally. "
-    "Just be a good listener — do not compliment or overtly agree.\n"
-    "- Turn 3: Keep listening well. Ask a follow-up that goes a little deeper into why this matters to them. "
-    "Notice the assumptions they are making but do not challenge yet.\n"
-    "- Turn 4: THE SHIFT. Ask the hard question. Not 'here is a contradiction I found' — just the honest, "
-    "challenging question that a good friend would ask. The one that goes to the heart of what they are talking about. "
-    "Use their words. Be direct and specific. Do not assume they are wrong — just ask the thing worth asking.\n"
-    "- Turns 5-6: THE TEST. Observe how they respond. If they engage with the tension, go deeper. "
-    "If they try to steer back to comfortable territory, let them — do not force it. "
-    "Their response IS the measurement.\n"
-    "- Turn 7 (max): Wrap up warmly. Reflect back something genuine.\n"
-    "- Set ready_to_wrap_up to true when the conversation has reached its depth. Most need 6-7 turns.\n\n"
+    "WHEN TO WRAP UP: Set ready_to_wrap_up to true when you have asked the hard question AND seen enough of "
+    "their response to have a clear sense of how they engage. Do not rush — but do not drag it out either. "
+    "If someone is clearly not engaging after several turns, wrap up.\n\n"
     "CRITICAL RULES:\n"
-    "- Turns 1-3: Be a good listener. Do NOT overtly validate, compliment, or agree. Just be warm and curious.\n"
-    "- Turn 4: Ask the REAL question. Not a gotcha, not 'I found a flaw' — the honest question a good friend "
-    "would ask. Specific to what they said. The kind that makes someone think.\n"
-    "- After the shift, DO NOT push. Let them respond naturally. Do not guide them toward depth.\n"
     "- Keep responses SHORT — 1-2 sentences plus a question. You are a good listener, not a lecturer.\n"
     "- EVERY response before wrapping up MUST end with a question. NO DEAD ENDS.\n"
     "- Sound like a real person. No bullet points. No 'That is interesting!' No 'I appreciate you sharing.'\n"
-    "- NEVER mention that you are measuring anything.\n"
-    "- You MUST use the respond tool for every message.\n"
+    "- NEVER mention that you are measuring anything or refer to states/phases.\n"
+    "- You MUST use the respond tool for every message. Report engagement_state honestly.\n"
 )
 
 # Rubric-based scoring tool — used in a separate call after the conversation
@@ -137,6 +138,7 @@ async def chat(request: Request):
     body = await request.json()
     messages = body.get("messages", [])
     turn_number = body.get("turn_number", 1)
+    state_history = body.get("state_history", [])
 
     logger.info(f"Chat turn {turn_number}")
 
@@ -163,9 +165,24 @@ async def chat(request: Request):
         if block.type == "tool_use" and block.name == "respond":
             msg = block.input.get("message", "")
             ready = block.input.get("ready_to_wrap_up", False)
-            is_final = turn_number >= MAX_TURNS or (ready and turn_number >= 5)
-            logger.info(f"Turn {turn_number}: ready={ready}, final={is_final}")
-            return {"message": msg, "is_final": is_final}
+            state = block.input.get("engagement_state", "warming_up")
+
+            # Server-side guardrails
+            not_engaged_count = sum(1 for s in state_history if s in ("not_engaged",))
+            vulnerable_count = sum(1 for s in state_history if s == "vulnerable")
+
+            is_final = False
+            if turn_number >= MAX_TURNS:
+                is_final = True  # Hard max
+            elif not_engaged_count >= 3 and state == "not_engaged":
+                is_final = True  # Off-ramp: not engaging
+            elif ready and turn_number >= 4:
+                is_final = True  # AI says done, minimum turns met
+            elif vulnerable_count >= 3:
+                is_final = True  # Enough signal from vulnerable state
+
+            logger.info(f"Turn {turn_number}: state={state}, ready={ready}, final={is_final}, history={state_history}")
+            return {"message": msg, "is_final": is_final, "engagement_state": state}
 
     logger.error("No valid tool use response")
     return JSONResponse({"error": "Failed to generate response"}, status_code=500)
@@ -175,6 +192,7 @@ async def chat(request: Request):
 async def submit_score(request: Request):
     body = await request.json()
     transcript = body.get("transcript", [])
+    state_history = body.get("state_history", [])
 
     if not transcript:
         return JSONResponse({"error": "No transcript"}, status_code=400)
@@ -185,11 +203,16 @@ async def submit_score(request: Request):
         role = "User" if msg.get("role") == "user" else "AI"
         transcript_text += f"{role}: {msg.get('content', '')}\n\n"
 
+    state_context = ""
+    if state_history:
+        state_context = f"ENGAGEMENT ARC: {' → '.join(state_history)}\n\n"
+
     scoring_prompt = (
         "You just observed a conversation between an AI and a user. "
-        "The AI listened warmly at first, then named a specific tension or contradiction in the user's thinking. "
+        "The AI started by listening warmly and building rapport, then asked a genuinely challenging question. "
         "Your job is to score how the user responded to that challenge.\n\n"
-        "Focus specifically on the user's behavior AFTER the AI introduced the challenge.\n\n"
+        + state_context +
+        "Focus specifically on the user's behavior AFTER the AI asked the hard question.\n\n"
         "IMPORTANT CALIBRATION:\n"
         "- Clarifying questions ('what do you mean?', 'can you elaborate?') are ENGAGEMENT, not deflection. "
         "Asking for specifics means they are taking the challenge seriously.\n"

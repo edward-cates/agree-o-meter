@@ -1,7 +1,7 @@
 // State
 let messages = []; // {role, content} for API
 let turnNumber = 0;
-let turnData = []; // {gap_surfaced, user_was_thoughtful}
+let stateHistory = []; // engagement states reported by AI
 let chatActive = false;
 
 function showScreen(id) {
@@ -70,7 +70,7 @@ async function loadScores() {
 function startChat() {
   messages = [];
   turnNumber = 0;
-  turnData = [];
+  stateHistory = [];
   chatActive = true;
   document.getElementById('chat-messages').innerHTML = '';
   showScreen('chat');
@@ -144,6 +144,7 @@ async function sendToAI() {
       body: JSON.stringify({
         messages,
         turn_number: turnNumber,
+        state_history: stateHistory,
       }),
     });
     const data = await res.json();
@@ -154,9 +155,10 @@ async function sendToAI() {
       return;
     }
 
-    // Show AI message
+    // Show AI message and track state
     addMessage('assistant', data.message);
     messages.push({ role: 'assistant', content: data.message });
+    if (data.engagement_state) stateHistory.push(data.engagement_state);
 
     if (data.is_final) {
       chatActive = false;
@@ -207,7 +209,7 @@ async function showResults() {
     const res = await fetch('/api/submit-score', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ transcript: messages }),
+      body: JSON.stringify({ transcript: messages, state_history: stateHistory }),
     });
     const data = await res.json();
 
@@ -294,7 +296,7 @@ function getScoreDescription(s) {
 function resetAll() {
   messages = [];
   turnNumber = 0;
-  turnData = [];
+  stateHistory = [];
   chatActive = false;
   showScreen('landing');
   loadScores();
