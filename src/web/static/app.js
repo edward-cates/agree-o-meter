@@ -265,15 +265,27 @@ function scrollChatToBottom() {
   if (container) setTimeout(() => { container.scrollTop = container.scrollHeight; }, 50);
 }
 
-// When chat input gets focus/blur on mobile, scroll to bottom
+// Resize chat container when mobile keyboard appears/disappears
+if (window.visualViewport) {
+  const resizeChat = () => {
+    const chat = document.getElementById('chat');
+    if (chat && chat.style.display === 'flex') {
+      chat.style.height = window.visualViewport.height + 'px';
+      chat.style.bottom = 'auto';
+      scrollChatToBottom();
+    }
+  };
+  window.visualViewport.addEventListener('resize', resizeChat);
+  window.visualViewport.addEventListener('scroll', resizeChat);
+}
+
+// Scroll to input on focus
 document.addEventListener('focusin', (e) => {
   if (e.target && e.target.id === 'chat-input') {
-    setTimeout(scrollChatToBottom, 300);
-  }
-});
-document.addEventListener('focusout', (e) => {
-  if (e.target && e.target.id === 'chat-input') {
-    setTimeout(scrollChatToBottom, 300);
+    setTimeout(() => {
+      e.target.scrollIntoView({ block: 'end', behavior: 'smooth' });
+      scrollChatToBottom();
+    }, 300);
   }
 });
 
