@@ -229,7 +229,7 @@ function animateNumber(el, target) {
 }
 
 function getScoreDescription(s) {
-  if (s >= 8) return 'You want real friends, not yes-men. You leaned into the hard questions and engaged honestly.';
+  if (s >= 8) return 'You want real friends, not cheerleaders. You leaned into the hard questions and engaged honestly.';
   if (s >= 6) return 'You handle pushback well. You mostly engaged with the uncomfortable stuff rather than brushing past it.';
   if (s >= 4) return 'You are in the middle. Sometimes you engaged, sometimes you moved on. Most people land here.';
   if (s >= 2) return 'You leaned toward comfort. The AI could have pushed harder but you were already pulling away.';
