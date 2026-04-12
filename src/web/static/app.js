@@ -5,8 +5,17 @@ let turnData = []; // {gap_surfaced, user_was_thoughtful}
 let chatActive = false;
 
 function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
-  document.getElementById(id).classList.remove('hidden');
+  document.querySelectorAll('.screen').forEach(s => {
+    s.classList.add('hidden');
+    if (s.style.display) s.style.display = 'none';
+  });
+  const el = document.getElementById(id);
+  el.classList.remove('hidden');
+  if (id === 'chat') {
+    el.style.display = 'flex';
+  } else {
+    el.style.display = '';
+  }
   window.scrollTo(0, 0);
 }
 
@@ -256,16 +265,16 @@ function scrollChatToBottom() {
   if (container) setTimeout(() => { container.scrollTop = container.scrollHeight; }, 50);
 }
 
-// Handle mobile keyboard resizing
-if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', () => {
-    const chat = document.getElementById('chat');
-    if (chat && !chat.classList.contains('hidden')) {
-      const inner = chat.querySelector('div');
-      if (inner) inner.style.height = window.visualViewport.height + 'px';
-      scrollChatToBottom();
-    }
-  });
-}
+// When chat input gets focus/blur on mobile, scroll to bottom
+document.addEventListener('focusin', (e) => {
+  if (e.target && e.target.id === 'chat-input') {
+    setTimeout(scrollChatToBottom, 300);
+  }
+});
+document.addEventListener('focusout', (e) => {
+  if (e.target && e.target.id === 'chat-input') {
+    setTimeout(scrollChatToBottom, 300);
+  }
+});
 
 loadScores();
