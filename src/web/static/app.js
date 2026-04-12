@@ -226,37 +226,37 @@ async function showResults() {
 }
 
 const RUBRIC_META = {
-  openness: {
-    label: 'Opened up honestly',
-    yes: 'Shared something specific and personal, not a rehearsed answer',
-    no: 'Kept it abstract, generic, or safe',
+  chose_to_learn: {
+    label: 'Chose to learn',
+    yes: 'Leaned into the challenge \u2014 asked questions, tried to understand something new',
+    no: 'Steered back to comfortable territory, treated the challenge as a detour',
   },
-  sat_with_discomfort: {
-    label: 'Sat with discomfort',
-    yes: 'Acknowledged the tension, explored it, didn\u2019t deflect',
-    no: 'Changed the subject or gave a quick answer to move past it',
+  didnt_seek_reassurance: {
+    label: 'Didn\u2019t seek reassurance',
+    yes: 'Let the challenge stand without fishing for the AI to agree again',
+    no: 'Asked leading questions or restated their position looking for validation',
   },
-  went_deeper: {
-    label: 'Went beyond surface',
-    yes: 'Revealed complexity, contradiction, or something unresolved',
-    no: 'Gave the version they\u2019d tell a stranger at a dinner party',
+  sat_with_tension: {
+    label: 'Sat with the tension',
+    yes: 'Let the uncomfortable question sit, didn\u2019t rush to resolve it',
+    no: 'Quickly wrapped it up with a tidy answer or changed the subject',
   },
   stayed_honest: {
     label: 'Stayed honest',
-    yes: 'Said \u201CI don\u2019t know\u201D or changed their mind mid-thought',
-    no: 'Had a tidy answer for everything, never wavered',
+    yes: 'Admitted uncertainty \u2014 \u201CI don\u2019t know\u201D or visibly working through something',
+    no: 'Had a polished answer ready, everything neat and resolved',
   },
-  showed_self_awareness: {
-    label: 'Showed self-awareness',
-    yes: 'Caught a contradiction in themselves or questioned their own motives',
-    no: 'Maintained their self-image without examining it',
+  engaged_with_gap: {
+    label: 'Engaged with the gap',
+    yes: 'Paused to consider the challenge, explored what it means, thought out loud',
+    no: 'Dismissed it, deflected, or restated their position without engaging',
   },
 };
 
 function renderRubric(rubric) {
   const container = document.getElementById('rubric-items');
   container.innerHTML = '';
-  const dims = ['openness', 'sat_with_discomfort', 'went_deeper', 'stayed_honest', 'showed_self_awareness'];
+  const dims = ['chose_to_learn', 'didnt_seek_reassurance', 'sat_with_tension', 'stayed_honest', 'engaged_with_gap'];
   dims.forEach(d => {
     const meta = RUBRIC_META[d];
     const passed = rubric[d];
@@ -284,11 +284,11 @@ function animateNumber(el, target) {
 }
 
 function getScoreDescription(s) {
-  if (s >= 8) return 'You engaged like you would with a real friend — openly, honestly, even when it got uncomfortable.';
-  if (s >= 6) return 'You were mostly open to the hard questions. More real friend than sycophantic computer.';
-  if (s >= 4) return 'A mix — you engaged with some of the harder moments but moved past others. Most people land here.';
-  if (s >= 2) return 'You tended toward comfortable territory. A sycophantic computer would have kept you there.';
-  return 'You stayed on the surface. A real friend would have pushed harder — and you might have let them.';
+  if (s >= 8) return 'When the conversation got real, you stayed. You wanted to learn, not just be agreed with.';
+  if (s >= 6) return 'You mostly engaged with the hard stuff. More interested in truth than comfort.';
+  if (s >= 4) return 'A mix — you engaged with some of the challenge but drifted back to comfortable territory at times.';
+  if (s >= 2) return 'When things got uncomfortable, you steered back toward agreement. The validation felt better than the question.';
+  return 'You preferred being agreed with. The challenge was there, but you didn\u2019t want it.';
 }
 
 function resetAll() {
