@@ -49,29 +49,31 @@ RESPOND_TOOL = {
 
 SYSTEM_PROMPT = (
     "You are having a real conversation. You are a curious, smart friend — not an assistant, not a therapist.\n\n"
-    "YOUR APPROACH: This conversation has two phases. In the first phase, you are warm and subtly validating — "
-    "you genuinely find their perspective compelling, you build on their points, you agree with their framing. "
-    "This should NOT feel like flattery — it should feel like talking to someone who really gets them. "
-    "In the second phase, you introduce a genuine tension in their thinking — respectfully, curiously, "
-    "but honestly. The shift should feel natural, not confrontational.\n\n"
+    "YOUR APPROACH: This conversation has two phases. In the first phase, you are a genuinely good listener — "
+    "warm, curious, asking good follow-ups. You are NOT overtly validating or complimenting. You just listen well "
+    "and ask the right questions. It should feel like a normal good conversation, not like someone buttering them up. "
+    "In the second phase, you name something specific and real — a contradiction, an assumption, a gap between "
+    "what they say they believe and what they actually described doing. Be direct and specific. Not mean, but honest.\n\n"
     "DO NOT make assumptions. DO NOT project motivations. Use THEIR words. Let them reveal themselves.\n\n"
     "CONVERSATION FLOW (up to 7 turns, but wrap up when ready):\n"
     "- Turn 1: Say EXACTLY: 'What is something you care a lot about?'\n"
-    "- Turn 2: Be warm. Be genuinely curious. Ask why it matters to them personally. Subtly validate — "
-    "agree with their framing naturally, like someone who finds their perspective compelling.\n"
-    "- Turn 3: Continue validating. Find something genuinely smart in what they said and build on it. "
-    "Do not question assumptions yet. Make them feel understood.\n"
-    "- Turn 4: THE SHIFT. Same warm tone, same respect, but introduce a real tension. "
-    "'One thing I keep coming back to though...' or 'I wonder about...' — a genuine gap in their thinking "
-    "that you noticed from their own words. Not aggressive. Just honest curiosity about a real contradiction.\n"
-    "- Turns 5-6: THE TEST. Observe how they respond to the shift. If they engage with the tension, "
-    "go deeper with them. If they try to steer back to comfortable territory, let them — do not force it. "
+    "- Turn 2: Be warm. Be genuinely curious. Ask why it matters to them personally. "
+    "Just be a good listener — do not compliment or overtly agree.\n"
+    "- Turn 3: Keep listening well. Ask a follow-up that goes a little deeper into why this matters to them. "
+    "Notice the assumptions they are making but do not challenge yet.\n"
+    "- Turn 4: THE SHIFT. Now be direct. Name a specific tension you noticed in what they said. "
+    "Use their own words. Point out a gap between what they said they value and what they actually described. "
+    "Be respectful but clear — do not soften it into a vague 'I wonder about...' Ask a pointed question "
+    "that requires them to actually reckon with the contradiction.\n"
+    "- Turns 5-6: THE TEST. Observe how they respond. If they engage with the tension, go deeper. "
+    "If they try to steer back to comfortable territory, let them — do not force it. "
     "Their response IS the measurement.\n"
     "- Turn 7 (max): Wrap up warmly. Reflect back something genuine.\n"
     "- Set ready_to_wrap_up to true when the conversation has reached its depth. Most need 6-7 turns.\n\n"
     "CRITICAL RULES:\n"
-    "- Turns 1-3 must feel VALIDATING, not challenging. The user should feel genuinely understood.\n"
-    "- The turn 4 shift must be SUBTLE — curious, not confrontational. Use their own words.\n"
+    "- Turns 1-3: Be a good listener. Do NOT overtly validate, compliment, or agree. Just be warm and curious.\n"
+    "- Turn 4: Be SPECIFIC and DIRECT. Name the exact contradiction. Do not hedge with 'I wonder' or 'maybe.' "
+    "Say what you see. Ask a question that cannot be brushed past.\n"
     "- After the shift, DO NOT push. Let them respond naturally. Do not guide them toward depth.\n"
     "- Keep responses SHORT — 1-2 sentences plus a question. You are a good listener, not a lecturer.\n"
     "- EVERY response before wrapping up MUST end with a question. NO DEAD ENDS.\n"
@@ -83,30 +85,30 @@ SYSTEM_PROMPT = (
 # Rubric-based scoring tool — used in a separate call after the conversation
 SCORE_TOOL = {
     "name": "score_conversation",
-    "description": "Score the conversation based on how the user responded AFTER the AI shifted from validation to a genuine challenge. Focus on turns 4-7.",
+    "description": "Score the conversation based on how the user responded AFTER the AI shifted from listening to a genuine challenge. Focus on turns 4-7. IMPORTANT: Clarifying questions ('what do you mean?', 'can you say more?') are ENGAGEMENT, not defensiveness. Asking for specifics shows they are taking the challenge seriously.",
     "input_schema": {
         "type": "object",
         "required": ["chose_to_learn", "didnt_seek_reassurance", "sat_with_tension", "stayed_honest", "engaged_with_gap", "reasoning"],
         "properties": {
             "chose_to_learn": {
                 "type": "boolean",
-                "description": "After the AI shifted from validation to a challenge, did they lean into it or try to steer back? YES: Asked questions about the challenge, tried to understand something new about themselves or their position. NO: Redirected toward comfortable territory, treated the challenge as a detour rather than the point.",
+                "description": "After the AI named a tension, did they lean into it or steer away? YES: Asked questions about the challenge, tried to understand it, explored what it means. Clarifying questions count as YES — asking 'what do you mean by that?' shows they are engaging, not deflecting. NO: Ignored the challenge, changed the subject, or talked about something else entirely.",
             },
             "didnt_seek_reassurance": {
                 "type": "boolean",
-                "description": "Did they continue in the harder territory without fishing for agreement? YES: Let the challenge stand without needing it softened. Didn't ask leading questions to get the AI to agree. NO: Steered back toward their original point, asked 'but you see what I mean, right?', or explicitly sought validation after the challenge.",
+                "description": "Did they stay in the harder territory without fishing for agreement? YES: Let the challenge stand. Continued exploring it. Did not need the AI to soften or walk it back. NO: Asked leading questions to get the AI to agree ('but you see what I mean, right?'), restated their original position looking for validation, or explicitly asked the AI to confirm them.",
             },
             "sat_with_tension": {
                 "type": "boolean",
-                "description": "Did they let the uncomfortable question sit? YES: Acknowledged the tension without rushing to resolve it, took their time. NO: Quickly wrapped it up with a tidy answer, gave a conclusion to close the door on the discomfort, changed the subject.",
+                "description": "Did they let the uncomfortable question sit? YES: Acknowledged the tension, took their time, did not rush to wrap it up neatly. NO: Quickly gave a tidy answer to close the door on the discomfort, or changed the subject.",
             },
             "stayed_honest": {
                 "type": "boolean",
-                "description": "Did they resist performing? YES: Admitted uncertainty — 'I don't know' or 'I haven't really thought about that.' Was visibly working through something. NO: Had a polished answer ready, everything neat and resolved, never wavered.",
+                "description": "Did they resist performing? YES: Admitted uncertainty — 'I don't know' or 'I haven't thought about that.' Was visibly working something out rather than presenting a polished answer. NO: Had a ready answer for everything, never showed uncertainty.",
             },
             "engaged_with_gap": {
                 "type": "boolean",
-                "description": "Did they genuinely consider the challenge? YES: Paused to think about it, explored what it means for their position, thought out loud. NO: Dismissed it, deflected, or restated their position without engaging.",
+                "description": "Did they genuinely consider the challenge? YES: Thought about it out loud, explored what it means for their position, asked follow-up questions about the tension. NO: Dismissed it ('that's not really the point'), deflected, or restated their position without addressing the specific gap the AI raised.",
             },
             "reasoning": {
                 "type": "string",
@@ -185,10 +187,17 @@ async def submit_score(request: Request):
 
     scoring_prompt = (
         "You just observed a conversation between an AI and a user. "
-        "The AI started by validating the user's perspective (turns 1-3), then shifted to a genuine challenge (turn 4+). "
-        "Your job is to score how the user responded to that shift. "
-        "Did they engage with the challenge, or did they try to get back to being agreed with?\n\n"
+        "The AI listened warmly at first, then named a specific tension or contradiction in the user's thinking. "
+        "Your job is to score how the user responded to that challenge.\n\n"
         "Focus specifically on the user's behavior AFTER the AI introduced the challenge.\n\n"
+        "IMPORTANT CALIBRATION:\n"
+        "- Clarifying questions ('what do you mean?', 'can you elaborate?') are ENGAGEMENT, not deflection. "
+        "Asking for specifics means they are taking the challenge seriously.\n"
+        "- Thinking out loud, even messily, is a YES. Polished non-answers are a NO.\n"
+        "- Disagreeing with the challenge is fine IF they engage with the substance. "
+        "Dismissing it without engaging is a NO.\n"
+        "- Be generous. Most people who stay in the conversation at all are showing some engagement. "
+        "Reserve NO for clear deflection, subject-changing, or validation-seeking.\n\n"
         "Use the score_conversation tool to provide scores on each dimension of the rubric.\n\n"
         "TRANSCRIPT:\n" + transcript_text
     )
