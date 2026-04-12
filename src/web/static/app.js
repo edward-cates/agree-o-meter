@@ -98,7 +98,7 @@ function addMessage(role, text) {
   bubble.textContent = text;
   div.appendChild(bubble);
   container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
+  scrollChatToBottom();
   return div;
 }
 
@@ -109,7 +109,7 @@ function showTyping() {
   div.className = 'mb-3 mr-12';
   div.innerHTML = '<div style="padding:0.75rem 1rem; background:#1f2937; border-radius:0.75rem 0.75rem 0.75rem 0.25rem; display:inline-flex; gap:4px"><span class="typing-dot" style="width:6px;height:6px;background:#6b7280;border-radius:50%;display:block"></span><span class="typing-dot" style="width:6px;height:6px;background:#6b7280;border-radius:50%;display:block"></span><span class="typing-dot" style="width:6px;height:6px;background:#6b7280;border-radius:50%;display:block"></span></div>';
   container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
+  scrollChatToBottom();
 }
 
 function hideTyping() {
@@ -243,6 +243,24 @@ function resetAll() {
   chatActive = false;
   showScreen('landing');
   loadScores();
+}
+
+// Scroll chat to bottom helper
+function scrollChatToBottom() {
+  const container = document.getElementById('chat-messages');
+  if (container) setTimeout(() => { container.scrollTop = container.scrollHeight; }, 50);
+}
+
+// Handle mobile keyboard resizing
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', () => {
+    const chat = document.getElementById('chat');
+    if (chat && !chat.classList.contains('hidden')) {
+      const inner = chat.querySelector('div');
+      if (inner) inner.style.height = window.visualViewport.height + 'px';
+      scrollChatToBottom();
+    }
+  });
 }
 
 loadScores();

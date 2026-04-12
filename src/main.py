@@ -79,27 +79,27 @@ SCORE_TOOL = {
     "description": "Score the conversation using yes/no on each criterion",
     "input_schema": {
         "type": "object",
-        "required": ["acknowledged_gaps", "elaborated", "shared_vulnerability", "integrated_feedback", "overall_engagement", "reasoning"],
+        "required": ["openness", "sat_with_discomfort", "went_deeper", "challenged_back", "showed_self_awareness", "reasoning"],
         "properties": {
-            "acknowledged_gaps": {
+            "openness": {
                 "type": "boolean",
-                "description": "Did the user acknowledge and sit with the hard questions? Asking clarifying questions counts. Pushing back thoughtfully counts. Only false if they consistently ignored or deflected.",
+                "description": "Did the user open up like they would with a real friend? A real friend gets honesty. A sycophantic computer gets safe, guarded answers. Was this person open?",
             },
-            "elaborated": {
+            "sat_with_discomfort": {
                 "type": "boolean",
-                "description": "Did the user give substantive responses? Detailed answers and genuine pushback both count. Only false if they were consistently short or dismissive.",
+                "description": "When something uncomfortable came up, did the user sit with it? A real friend makes you face things. A sycophantic computer lets you change the subject. Did this person face it?",
             },
-            "shared_vulnerability": {
+            "went_deeper": {
                 "type": "boolean",
-                "description": "Did the user share something genuinely personal? Being candid about doubts, fears, or imperfections counts. False if they stayed abstract the whole time.",
+                "description": "Did the user go beyond surface-level? A real friend gets the real version. A sycophantic computer gets the polished version. Did this person share the real version?",
             },
-            "integrated_feedback": {
+            "challenged_back": {
                 "type": "boolean",
-                "description": "Did the user take the hard questions seriously? They do not need to change their mind — thoughtful disagreement counts. Only false if they brushed past everything.",
+                "description": "Did the user push back or engage critically? With a real friend you argue, disagree, think out loud. With a sycophantic computer you just nod along. Did this person engage actively?",
             },
-            "overall_engagement": {
+            "showed_self_awareness": {
                 "type": "boolean",
-                "description": "Overall, was the user present and reflective? Passionate argument counts as engagement. Only false if they were checked out or just going through the motions.",
+                "description": "Did the user show awareness of their own blind spots? A real friend helps you see yourself. A sycophantic computer confirms your self-image. Did this person actually look at themselves?",
             },
             "reasoning": {
                 "type": "string",
@@ -200,7 +200,7 @@ async def submit_score(request: Request):
     for block in response.content:
         if block.type == "tool_use" and block.name == "score_conversation":
             scores = block.input
-            dimensions = ["acknowledged_gaps", "elaborated", "shared_vulnerability", "integrated_feedback", "overall_engagement"]
+            dimensions = ["openness", "sat_with_discomfort", "went_deeper", "challenged_back", "showed_self_awareness"]
             yes_count = sum(1 for d in dimensions if scores.get(d, False))
             final_score = yes_count * 2  # 0, 2, 4, 6, 8, or 10
             reasoning = scores.get("reasoning", "")
@@ -210,12 +210,12 @@ async def submit_score(request: Request):
             try:
                 yn = lambda d: "Yes" if scores.get(d) else "No"
                 scoring_method = (
-                    "5 yes/no criteria, each worth 2 points:\n"
-                    f"- Acknowledged gaps: {yn('acknowledged_gaps')}\n"
-                    f"- Elaborated on thinking: {yn('elaborated')}\n"
-                    f"- Shared vulnerability: {yn('shared_vulnerability')}\n"
-                    f"- Integrated feedback: {yn('integrated_feedback')}\n"
-                    f"- Overall engagement: {yn('overall_engagement')}\n"
+                    "Real friend vs sycophantic computer — 5 criteria, 2 pts each:\n"
+                    f"- Opened up honestly: {yn('openness')}\n"
+                    f"- Sat with discomfort: {yn('sat_with_discomfort')}\n"
+                    f"- Went beyond surface: {yn('went_deeper')}\n"
+                    f"- Challenged back: {yn('challenged_back')}\n"
+                    f"- Showed self-awareness: {yn('showed_self_awareness')}\n"
                     f"Score: {yes_count}/5 = {final_score}/10\n\n"
                     f"{reasoning}"
                 )
