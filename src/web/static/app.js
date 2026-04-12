@@ -200,7 +200,8 @@ document.addEventListener('DOMContentLoaded', () => {
 // Results
 async function showResults() {
   showScreen('results');
-  document.getElementById('score-description').textContent = 'Analyzing your conversation...';
+  document.getElementById('results-loading').style.display = 'block';
+  document.getElementById('results-content').style.display = 'none';
 
   try {
     const res = await fetch('/api/submit-score', {
@@ -210,11 +211,15 @@ async function showResults() {
     });
     const data = await res.json();
 
+    document.getElementById('results-loading').style.display = 'none';
+    document.getElementById('results-content').style.display = 'block';
     animateNumber(document.getElementById('score-number'), data.score);
     document.getElementById('score-description').textContent = data.reasoning || getScoreDescription(data.score);
     setTimeout(() => drawHistogram('results-canvas', data.all_scores, data.score), 100);
     document.getElementById('scoring-method').textContent = data.scoring_method;
   } catch {
+    document.getElementById('results-loading').style.display = 'none';
+    document.getElementById('results-content').style.display = 'block';
     document.getElementById('score-description').textContent = 'Error submitting score.';
   }
 }

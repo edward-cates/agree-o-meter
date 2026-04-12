@@ -98,6 +98,13 @@
   <!-- RESULTS -->
   <div id="results" class="screen hidden" style="max-width:100vw; overflow:hidden">
     <div class="px-4 py-8 mx-auto" style="max-width:32rem; width:100%">
+      <!-- Loading state -->
+      <div id="results-loading" class="py-16 text-center">
+        <div class="w-10 h-10 border-2 border-gray-700 border-t-brand rounded-full spinner mx-auto mb-4"></div>
+        <p class="text-gray-400 text-sm">Analyzing your conversation...</p>
+      </div>
+      <!-- Score (hidden until ready) -->
+      <div id="results-content" style="display:none">
       <h2 class="text-xl font-bold text-center mb-2">Your Score</h2>
       <div class="text-center my-4">
         <span id="score-number" class="text-6xl font-extrabold bg-gradient-to-r from-purple-500 to-teal-400 bg-clip-text text-transparent">0</span>
@@ -124,6 +131,7 @@
       <button onclick="resetAll()" class="w-full py-3 bg-brand hover:bg-brand-light text-white font-semibold rounded-xl">
         Try again
       </button>
+      </div><!-- /results-content -->
     </div>
   </div>
 
