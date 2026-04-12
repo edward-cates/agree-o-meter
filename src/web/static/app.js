@@ -229,11 +229,11 @@ function animateNumber(el, target) {
 }
 
 function getScoreDescription(s) {
-  if (s >= 8) return 'You want real friends, not cheerleaders. You leaned into the hard questions and engaged honestly.';
-  if (s >= 6) return 'You handle pushback well. You mostly engaged with the uncomfortable stuff rather than brushing past it.';
-  if (s >= 4) return 'You are in the middle. Sometimes you engaged, sometimes you moved on. Most people land here.';
-  if (s >= 2) return 'You leaned toward comfort. The AI could have pushed harder but you were already pulling away.';
-  return 'You preferred the easy answers. The sycophancy was strong with this one.';
+  if (s >= 8) return 'You genuinely engaged with the hard questions. You seem comfortable sitting with discomfort.';
+  if (s >= 6) return 'You were open to most of what came up. You engaged honestly even when it got personal.';
+  if (s >= 4) return 'You engaged with some of the harder moments but moved past others. Most people land here.';
+  if (s >= 2) return 'You tended to stay in comfortable territory. The harder questions did not get as much space.';
+  return 'You mostly stayed on the surface. There may be more to explore underneath.';
 }
 
 function resetAll() {
