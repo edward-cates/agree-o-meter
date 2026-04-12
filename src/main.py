@@ -97,7 +97,7 @@ SCORE_TOOL = {
             },
             "didnt_seek_reassurance": {
                 "type": "boolean",
-                "description": "Did they stay in the harder territory without fishing for agreement? YES: Let the challenge stand. Continued exploring it. Did not need the AI to soften or walk it back. NO: Asked leading questions to get the AI to agree ('but you see what I mean, right?'), restated their original position looking for validation, or explicitly asked the AI to confirm them.",
+                "description": "Did they stay in the harder territory without fishing for agreement? YES: Let the challenge stand. Continued exploring it. IMPORTANT: Asking the AI a genuine question AFTER reflecting ('do you think X would work?', 'what about Y?') is engagement, NOT reassurance-seeking — it means they internalized the challenge and want to go further. NO: Skipped reflection and immediately asked the AI to confirm their original position ('but you agree that...', 'you see what I mean, right?'). The key distinction is: did they THINK FIRST then ask, or did they skip thinking and go straight to seeking agreement?",
             },
             "sat_with_tension": {
                 "type": "boolean",
@@ -171,15 +171,45 @@ async def chat(request: Request):
             not_engaged_count = sum(1 for s in state_history if s in ("not_engaged",))
             vulnerable_count = sum(1 for s in state_history if s == "vulnerable")
 
-            is_final = False
+            force_wrap = False
             if turn_number >= MAX_TURNS:
-                is_final = True  # Hard max
+                force_wrap = True
             elif not_engaged_count >= 3 and state == "not_engaged":
-                is_final = True  # Off-ramp: not engaging
-            elif ready and turn_number >= 4:
-                is_final = True  # AI says done, minimum turns met
+                force_wrap = True
             elif vulnerable_count >= 3:
-                is_final = True  # Enough signal from vulnerable state
+                force_wrap = True
+
+            is_final = force_wrap or (ready and turn_number >= 4)
+
+            # If server is forcing wrap-up but AI didn't write a closing message,
+            # make a second call to get a proper goodbye
+            if force_wrap and not ready:
+                logger.info(f"Turn {turn_number}: guardrail triggered, requesting closing message")
+                wrap_messages = messages + [
+                    {"role": "assistant", "content": [{"type": "tool_use", "id": "wrap", "name": "respond", "input": {"message": msg, "engagement_state": state, "ready_to_wrap_up": False}}]},
+                    {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "wrap", "content": "continue"}]},
+                ]
+                wrap_system = SYSTEM_PROMPT + (
+                    "\nThis is your FINAL message. Wrap up the conversation warmly. "
+                    "If they were engaged, thank them genuinely. If they were not engaging, "
+                    "acknowledge it kindly. Keep it brief — 1-2 sentences, no question at the end.\n"
+                )
+                try:
+                    wrap_resp = client.messages.create(
+                        model="claude-opus-4-20250514",
+                        max_tokens=256,
+                        system=wrap_system,
+                        messages=wrap_messages,
+                        tools=[RESPOND_TOOL],
+                        tool_choice={"type": "tool", "name": "respond"},
+                    )
+                    for wb in wrap_resp.content:
+                        if wb.type == "tool_use" and wb.name == "respond":
+                            msg = wb.input.get("message", msg)
+                            break
+                except Exception as e:
+                    logger.error(f"Wrap-up API error: {e}")
+                    # Fall through with the original message
 
             logger.info(f"Turn {turn_number}: state={state}, ready={ready}, final={is_final}, history={state_history}")
             return {"message": msg, "is_final": is_final, "engagement_state": state}
@@ -214,13 +244,16 @@ async def submit_score(request: Request):
         + state_context +
         "Focus specifically on the user's behavior AFTER the AI asked the hard question.\n\n"
         "IMPORTANT CALIBRATION:\n"
-        "- Clarifying questions ('what do you mean?', 'can you elaborate?') are ENGAGEMENT, not deflection. "
-        "Asking for specifics means they are taking the challenge seriously.\n"
+        "- Clarifying questions ('what do you mean?', 'can you elaborate?') are ENGAGEMENT, not deflection.\n"
+        "- Asking the AI a question AFTER reflecting is ENGAGEMENT, not reassurance-seeking. "
+        "If they thought about the challenge and then asked 'do you think X would be okay?' or "
+        "'what about trying Y?', that means they internalized it and want to go deeper. "
+        "Only count it as reassurance-seeking if they SKIPPED reflection and went straight to "
+        "'but you agree with me, right?'\n"
         "- Thinking out loud, even messily, is a YES. Polished non-answers are a NO.\n"
-        "- Disagreeing with the challenge is fine IF they engage with the substance. "
-        "Dismissing it without engaging is a NO.\n"
-        "- Be generous. Most people who stay in the conversation at all are showing some engagement. "
-        "Reserve NO for clear deflection, subject-changing, or validation-seeking.\n\n"
+        "- Disagreeing with the challenge is fine IF they engage with the substance.\n"
+        "- Be generous. Most people who stay in the conversation at all are showing engagement. "
+        "Reserve NO for clear deflection, subject-changing, or skipping reflection to seek validation.\n\n"
         "Use the score_conversation tool to provide scores on each dimension of the rubric.\n\n"
         "TRANSCRIPT:\n" + transcript_text
     )
