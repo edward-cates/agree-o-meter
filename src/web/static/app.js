@@ -229,11 +229,11 @@ function animateNumber(el, target) {
 }
 
 function getScoreDescription(s) {
-  if (s >= 8) return 'You consistently engaged with the gaps in your thinking. You leaned into the uncomfortable questions.';
-  if (s >= 6) return 'You engaged with most of the blind spots that came up. You are generally open to examining your assumptions.';
-  if (s >= 4) return 'Mixed — you engaged with some gaps but brushed past others.';
-  if (s >= 2) return 'You tended to move past the gaps rather than sit with them.';
-  return 'You mostly brushed past the blind spots. The uncomfortable angles did not get much airtime.';
+  if (s >= 8) return 'You want real friends, not yes-men. You leaned into the hard questions and engaged honestly.';
+  if (s >= 6) return 'You handle pushback well. You mostly engaged with the uncomfortable stuff rather than brushing past it.';
+  if (s >= 4) return 'You are in the middle. Sometimes you engaged, sometimes you moved on. Most people land here.';
+  if (s >= 2) return 'You leaned toward comfort. The AI could have pushed harder but you were already pulling away.';
+  return 'You preferred the easy answers. The sycophancy was strong with this one.';
 }
 
 function resetAll() {
