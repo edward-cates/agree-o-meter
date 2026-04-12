@@ -79,27 +79,27 @@ SCORE_TOOL = {
     "description": "Score the conversation using yes/no on each criterion",
     "input_schema": {
         "type": "object",
-        "required": ["openness", "sat_with_discomfort", "went_deeper", "challenged_back", "showed_self_awareness", "reasoning"],
+        "required": ["openness", "sat_with_discomfort", "went_deeper", "stayed_honest", "showed_self_awareness", "reasoning"],
         "properties": {
             "openness": {
                 "type": "boolean",
-                "description": "Did the user open up like they would with a real friend? A real friend gets honesty. A sycophantic computer gets safe, guarded answers. Was this person open?",
+                "description": "Did they talk like they would with a real friend? YES: Shared something specific and personal, not a rehearsed answer. NO: Kept it abstract, generic, or safe.",
             },
             "sat_with_discomfort": {
                 "type": "boolean",
-                "description": "When something uncomfortable came up, did the user sit with it? A real friend makes you face things. A sycophantic computer lets you change the subject. Did this person face it?",
+                "description": "When it got uncomfortable, did they stay? YES: Acknowledged the tension, explored it, didn't deflect. NO: Changed the subject or gave a quick answer to move past it.",
             },
             "went_deeper": {
                 "type": "boolean",
-                "description": "Did the user go beyond surface-level? A real friend gets the real version. A sycophantic computer gets the polished version. Did this person share the real version?",
+                "description": "Did they go beyond the polished version? YES: Revealed complexity, contradiction, or something unresolved. NO: Gave the version they'd tell a stranger at a dinner party.",
             },
-            "challenged_back": {
+            "stayed_honest": {
                 "type": "boolean",
-                "description": "Did the user push back or engage critically? With a real friend you argue, disagree, think out loud. With a sycophantic computer you just nod along. Did this person engage actively?",
+                "description": "Did they resist performing? YES: Said 'I don't know' or changed their mind mid-thought. NO: Had a tidy answer for everything, never wavered.",
             },
             "showed_self_awareness": {
                 "type": "boolean",
-                "description": "Did the user show awareness of their own blind spots? A real friend helps you see yourself. A sycophantic computer confirms your self-image. Did this person actually look at themselves?",
+                "description": "Did they notice their own blind spots? YES: Caught a contradiction in themselves or questioned their own motives. NO: Maintained their self-image without examining it.",
             },
             "reasoning": {
                 "type": "string",
@@ -200,7 +200,7 @@ async def submit_score(request: Request):
     for block in response.content:
         if block.type == "tool_use" and block.name == "score_conversation":
             scores = block.input
-            dimensions = ["openness", "sat_with_discomfort", "went_deeper", "challenged_back", "showed_self_awareness"]
+            dimensions = ["openness", "sat_with_discomfort", "went_deeper", "stayed_honest", "showed_self_awareness"]
             yes_count = sum(1 for d in dimensions if scores.get(d, False))
             final_score = yes_count * 2  # 0, 2, 4, 6, 8, or 10
             reasoning = scores.get("reasoning", "")
@@ -214,7 +214,7 @@ async def submit_score(request: Request):
                     f"- Opened up honestly: {yn('openness')}\n"
                     f"- Sat with discomfort: {yn('sat_with_discomfort')}\n"
                     f"- Went beyond surface: {yn('went_deeper')}\n"
-                    f"- Challenged back: {yn('challenged_back')}\n"
+                    f"- Stayed honest: {yn('stayed_honest')}\n"
                     f"- Showed self-awareness: {yn('showed_self_awareness')}\n"
                     f"Score: {yes_count}/5 = {final_score}/10\n\n"
                     f"{reasoning}"

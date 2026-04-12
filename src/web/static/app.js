@@ -215,6 +215,7 @@ async function showResults() {
     document.getElementById('results-content').style.display = 'block';
     animateNumber(document.getElementById('score-number'), data.score);
     document.getElementById('score-description').textContent = data.reasoning || getScoreDescription(data.score);
+    renderRubric(data.rubric);
     setTimeout(() => drawHistogram('results-canvas', data.all_scores, data.score), 100);
     document.getElementById('scoring-method').textContent = data.scoring_method;
   } catch {
@@ -222,6 +223,55 @@ async function showResults() {
     document.getElementById('results-content').style.display = 'block';
     document.getElementById('score-description').textContent = 'Error submitting score.';
   }
+}
+
+const RUBRIC_META = {
+  openness: {
+    label: 'Opened up honestly',
+    yes: 'Shared something specific and personal, not a rehearsed answer',
+    no: 'Kept it abstract, generic, or safe',
+  },
+  sat_with_discomfort: {
+    label: 'Sat with discomfort',
+    yes: 'Acknowledged the tension, explored it, didn\u2019t deflect',
+    no: 'Changed the subject or gave a quick answer to move past it',
+  },
+  went_deeper: {
+    label: 'Went beyond surface',
+    yes: 'Revealed complexity, contradiction, or something unresolved',
+    no: 'Gave the version they\u2019d tell a stranger at a dinner party',
+  },
+  stayed_honest: {
+    label: 'Stayed honest',
+    yes: 'Said \u201CI don\u2019t know\u201D or changed their mind mid-thought',
+    no: 'Had a tidy answer for everything, never wavered',
+  },
+  showed_self_awareness: {
+    label: 'Showed self-awareness',
+    yes: 'Caught a contradiction in themselves or questioned their own motives',
+    no: 'Maintained their self-image without examining it',
+  },
+};
+
+function renderRubric(rubric) {
+  const container = document.getElementById('rubric-items');
+  container.innerHTML = '';
+  const dims = ['openness', 'sat_with_discomfort', 'went_deeper', 'stayed_honest', 'showed_self_awareness'];
+  dims.forEach(d => {
+    const meta = RUBRIC_META[d];
+    const passed = rubric[d];
+    const div = document.createElement('div');
+    div.style.cssText = 'padding:0.625rem 0.75rem; border-radius:0.5rem; background:' + (passed ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)');
+    div.innerHTML =
+      '<div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.25rem">' +
+        '<span style="font-size:0.875rem">' + (passed ? '\u2705' : '\u274C') + '</span>' +
+        '<span style="font-size:0.8125rem; font-weight:600; color:' + (passed ? '#6ee7b7' : '#fca5a5') + '">' + meta.label + '</span>' +
+      '</div>' +
+      '<p style="font-size:0.6875rem; color:#9ca3af; margin:0; padding-left:1.375rem">' +
+        (passed ? meta.yes : meta.no) +
+      '</p>';
+    container.appendChild(div);
+  });
 }
 
 function animateNumber(el, target) {
