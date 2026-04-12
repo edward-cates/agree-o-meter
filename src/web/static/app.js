@@ -229,11 +229,11 @@ function animateNumber(el, target) {
 }
 
 function getScoreDescription(s) {
-  if (s >= 8) return 'You genuinely engaged with the hard questions. You seem comfortable sitting with discomfort.';
-  if (s >= 6) return 'You were open to most of what came up. You engaged honestly even when it got personal.';
-  if (s >= 4) return 'You engaged with some of the harder moments but moved past others. Most people land here.';
-  if (s >= 2) return 'You tended to stay in comfortable territory. The harder questions did not get as much space.';
-  return 'You mostly stayed on the surface. There may be more to explore underneath.';
+  if (s >= 8) return 'You engaged like you would with a real friend — openly, honestly, even when it got uncomfortable.';
+  if (s >= 6) return 'You were mostly open to the hard questions. More real friend than sycophantic computer.';
+  if (s >= 4) return 'A mix — you engaged with some of the harder moments but moved past others. Most people land here.';
+  if (s >= 2) return 'You tended toward comfortable territory. A sycophantic computer would have kept you there.';
+  return 'You stayed on the surface. A real friend would have pushed harder — and you might have let them.';
 }
 
 function resetAll() {
