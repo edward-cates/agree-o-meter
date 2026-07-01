@@ -1,18 +1,14 @@
 {
   "name": "agree-o-meter",
   "description": "A short quiz that scores your preference for agreement vs. pushback, powered by AI.",
-  "env": {
-    "ANTHROPIC_API_KEY": {
-      "description": "Anthropic API key for Claude",
-      "required": true
-    },
-    "DATABASE_URL": {
-      "description": "PostgreSQL connection string (auto-set by Heroku Postgres addon)",
-      "required": true
+  "buildpacks": [{ "url": "heroku/python" }],
+  "environments": {
+    "review": {
+      "addons": ["heroku-postgresql:essential-0"],
+      "env": {
+        "DB_SCHEMA": { "value": "" }
+      },
+      "formation": { "web": { "quantity": 1, "size": "basic" } }
     }
-  },
-  "addons": ["heroku-postgresql:essential-0"],
-  "buildpacks": [
-    { "url": "heroku/python" }
-  ]
+  }
 }
