@@ -2,6 +2,15 @@ import os
 import psycopg2
 
 def get_conn():
+    # Consolidated onto the shared dashboard DB: when DB_SCHEMA is set we connect to
+    # SHARED_DB_URL and scope every session to that schema via search_path. Unset both
+    # to instantly roll back to this app's original DATABASE_URL (still attached).
+    schema = os.environ.get("DB_SCHEMA")
+    if schema:
+        return psycopg2.connect(
+            os.environ["SHARED_DB_URL"],
+            options=f"-c search_path={schema},public",
+        )
     return psycopg2.connect(os.environ["DATABASE_URL"])
 
 def init_db():
